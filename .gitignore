@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+.env.local
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data files
+data/processed/*
+data/bm25_cache/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/chunks/.gitkeep
+data/chunks/*
+
+# Logs
+data/logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

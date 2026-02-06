@@ -1,0 +1,142 @@
+from typing import List, Dict, Any, Optional
+from qdrant_client import QdrantClient
+from qdrant_client.models import ( Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue )
+from backend.app.core.config import settings
+from backend.app.utils.logging_config import log_message, LG, LogLevel
+
+
+class QdrantManager:
+    """
+    مدیریت عملیات Qdrant Vector Store
+    """
+
+    def __init__( self ):
+        self.client = None
+        self.collection_name = settings.QDRANT_COLLECTION_NAME
+        self.vector_size = 1024          # BGE-M3 embedding size
+        self._connect()
+
+    def _connect( self ):
+        """اتصال به Qdrant"""
+        try:
+            self.client = QdrantClient( host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=60 )
+            log_message( LG.Database, "اتصال به Qdrant با موفقیت برقرار شد", LogLevel.INFO )
+            self._create_collection_if_not_exists()
+        except Exception as e:
+            log_message( LG.Database, f"خطا در اتصال به Qdrant: {str(e)}", LogLevel.ERROR )
+            raise
+
+    def _create_collection_if_not_exists( self ):
+        """ایجاد کالکشن اگر وجود نداشته باشد"""
+        try:
+            if self.client is not None:          #اگه اتصال برقرار شده بود
+                collections = self.client.get_collections().collections          #لیست کالکشن های موجود در Qdrant
+                collection_names = [ col.name for col in collections ]
+
+                if self.collection_name not in collection_names:          #اگه کالکشن وجود نداشت، ایجادش کن
+                    self.client.create_collection(
+                        collection_name=self.collection_name,
+                        vectors_config=VectorParams(
+                            size=self.vector_size,
+                            distance=Distance.COSINE          # استفاده از cosine similarity
+                        ) )
+                    log_message( LG.Database, f"کالکشن '{self.collection_name}' ایجاد شد", LogLevel.INFO )
+                else:
+                    log_message( LG.Database, f"کالکشن '{self.collection_name}' از قبل وجود دارد", LogLevel.INFO )
+        except Exception as e:
+            log_message( LG.Database, f"خطا در ایجاد کالکشن: {str(e)}", LogLevel.ERROR )
+            raise
+
+    def insert_vectors( self, chunk_ids: List[ str ], embeddings: List[ List[ float ] ],
+                        metadata: List[ Dict[ str, Any ] ] ) -> bool:
+        """
+        درج دسته‌جمعی vectors
+        """
+        try:
+            points = []
+            for idx, ( chunk_id, embedding, meta ) in enumerate( zip( chunk_ids, embeddings, metadata ) ):
+                point = PointStruct(
+                    id=hash( chunk_id ) % ( 10 ** 10 ),          # تبدیل chunk_id به عدد یکتا
+                    vector=embedding,
+                    payload={
+                        "chunk_id": chunk_id,
+                        **meta
+                    } )
+                points.append( point )
+
+            self.client.upsert( collection_name=self.collection_name, points=points )          # type: ignore
+            log_message( LG.Database, f"{len(points)} vector به Qdrant اضافه شد", LogLevel.INFO )
+            return True
+        except Exception as e:
+            log_message( LG.Database, f"خطا در درج vectors: {str(e)}", LogLevel.ERROR )
+            return False
+
+    def search_vectors( self,
+                        query_vector: List[ float ],
+                        top_k: int = 20,
+                        document_id: Optional[ int ] = None ) -> List[ Dict[ str, Any ] ]:
+        """
+        جستجوی semantic با vector
+        
+        Args:
+            query_vector: embedding سوال
+            top_k: تعداد نتایج
+            document_id: فیلتر بر اساس document_id (اختیاری)
+        """
+        try:
+            query_filter = None
+            if document_id:
+                query_filter = Filter(
+                    must=[ FieldCondition( key="document_id", match=MatchValue( value=document_id ) ) ] )
+
+            results = self.client.search(          # type: ignore
+                collection_name=self.collection_name,
+                query_vector=query_vector,
+                limit=top_k,
+                query_filter=query_filter,
+            )
+
+            # تبدیل نتایج به format مناسب
+            formatted_results = []
+            for result in results:
+                formatted_results.append( {
+                    "chunk_id": result.payload.get( "chunk_id" ),
+                    "score": result.score,
+                    "metadata": result.payload
+                } )
+
+            log_message( LG.Retrieval, f"{len(formatted_results)} نتیجه از Qdrant بازگردانده شد", LogLevel.DEBUG )
+            return formatted_results
+        except Exception as e:
+            log_message( LG.Retrieval, f"خطا در جستجوی vectors: {str(e)}", LogLevel.ERROR )
+            return []
+
+    def delete_by_document( self, document_id: int ) -> bool:
+        """حذف تمام vectors مربوط به یک document"""
+        try:
+            self.client.delete(          # type: ignore
+                collection_name=self.collection_name,
+                points_selector=Filter(
+                    must=[ FieldCondition( key="document_id", match=MatchValue( value=document_id ) ) ] ) )
+            log_message( LG.Database, f"Vectors مربوط به document {document_id} حذف شد", LogLevel.INFO )
+            return True
+        except Exception as e:
+            log_message( LG.Database, f"خطا در حذف vectors: {str(e)}", LogLevel.ERROR )
+            return False
+
+    def get_collection_info( self ) -> Dict[ str, Any ]:
+        """دریافت اطلاعات collection"""
+        try:
+            info = self.client.get_collection( self.collection_name )          # type: ignore
+            return {
+                "points_count": info.points_count,          # ✅ این وجود داره
+                "vectors_count": info.points_count,          # همون points_count هست
+                "status": info.status
+            }
+        except Exception as e:
+            log_message( LG.Database, f"خطا در دریافت اطلاعات کالکشن: {str(e)}", LogLevel.ERROR )
+            return {}
+
+
+# Instance سراسری
+qdrant_manager = QdrantManager()
