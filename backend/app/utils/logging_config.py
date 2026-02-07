@@ -12,16 +12,11 @@ LOG_DIR.mkdir( parents=True, exist_ok=True )
 
 
 class LG( str, Enum ):
-    Public = "Public"
+    API = "API"
+    Database = "Database"
     DataProcessing = "DataProcessing"
     Retrieval = "Retrieval"
     LLM = "LLM"
-    Reranking = "Reranking"
-    API = "API"
-    Redis = "Redis"
-    Database = "Database"
-    Embedding = "Embedding"
-    BM25 = "BM25"
 
 
 class LogLevel( Enum ):
