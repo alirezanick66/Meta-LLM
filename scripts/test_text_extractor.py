@@ -6,22 +6,17 @@ sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
 from backend.app.services.text_extractor import TextExtractor
 from backend.app.utils.logging_config import log_message, LG, LogLevel
+from backend.app.utils.custom_normalizer import persian_normalizer
 
-is_valid: str = "backend/data/documents/calture_citis.docx"
+file_path: str = "backend/data/documents/calture_citis.docx"
 
-# متد extract_from_docx یک tuple برمی‌گرداند: (text, metadata)
-extracted_text, metadata = TextExtractor().extract_from_docx( is_valid )
+extracted_text, metadata = TextExtractor().extract_from_docx( file_path )
 
 # نوشتن متن استخراج شده در فایل
-with open( "extracted_text.txt", "w", encoding="utf-8" ) as f:
+with open( "backend/data/test/extracted_text.txt", "w", encoding="utf-8" ) as f:
     f.write( extracted_text )
 
-# نمایش اطلاعات
-print( f"\n{'='*60}" )
-print( f"📄 فایل: {metadata.filename}" )
-print( f"📏 حجم: {metadata.file_size:,} بایت" )
-print( f"📝 تعداد پاراگراف: {metadata.total_paragraphs}" )
-print( f"📊 تعداد جدول: {metadata.total_tables}" )
-print( f"📑 تعداد عنوان: {metadata.total_headings}" )
-print( f"✅ متن استخراج شده: {len(extracted_text):,} کاراکتر" )
-print( f"{'='*60}\n" )
+# # تست 1: فاصله دوتایی
+# text1 = "ساعت 10:30 است"
+# result1 = persian_normalizer.normalize( text1 )
+# log_message( LG.DataProcessing, f"نتیجه نرمال‌سازی: '{result1}'", LogLevel.INFO )

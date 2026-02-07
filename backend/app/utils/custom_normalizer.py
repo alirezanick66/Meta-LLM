@@ -41,10 +41,6 @@ class PersianNormalizer:
         '٧': '7',
         '٨': '8',
         '٩': '9',
-          # علائم نگارشی (اختیاری: تبدیل کوتیشن انگلیسی به فارسی)
-        '"': '«',
-          # نکته: برای بسته شدن کوتیشن نیاز به لاجیک پیچیده‌تر است،
-          # اما اینجا ساده‌سازی می‌کنیم. یا می‌توانید این خط را حذف کنید.
     }
 
     # ساخت جدول ترجمه برای استفاده در متد translate
@@ -75,24 +71,6 @@ class PersianNormalizer:
         text = text.replace( '‌ ', '‌' )
         return text
 
-    def _remove_extra_spaces( self, text: str ) -> str:
-        """حذف فاصله‌های اضافی"""
-        # چند فاصله → یک فاصله
-        text = re.sub( r' +', ' ', text )
-        text = text.strip()
-
-        # لیست علائم نگارشی که نباید قبل از آن‌ها فاصله باشد
-        # یادتان ن باشد که « و » را هم اضافه کنیم (اگر Hazم انجام نداده باشد)
-        punctuations = r'([.,;:!?،؛ـ\)\]}"\'»«])'
-
-        # حذف فاصله قبل از علائم نگارشی
-        text = re.sub( rf'\s+{punctuations}', r'\1', text )
-
-        # حذف فاصله بعد از علائم باز (پرانتز باز، کوتیشن باز)
-        text = re.sub( r'([(\["\'«])\s+', r'\1', text )
-
-        return text
-
     def _remove_diacritics( self, text: str ) -> str:
         """حذف اعراب"""
         # استفاده از کلاس کاراکتری برای سرعت بیشتر
@@ -103,26 +81,56 @@ class PersianNormalizer:
         return text.replace( 'ـ', '' )
 
     def _fix_number_punctuation( self, text: str ) -> str:
-        """اصلاح علائم در اعداد و مخفف‌ها"""
+        """اصلاح علائم در اعداد"""
+
         # مخفف‌ها: U . S . A -> U.S.A
-        text = re.sub( r'(\w)\s*\.\s*(\w)', r'\1.\2', text )
+        # text = re.sub( r'(\w)\s*\.\s*(\w)', r'\1.\2', text )
 
         # اعشار: 0 ٫ 5 -> 0.5
         text = re.sub( r'(\d)\s*٫\s*(\d)', r'\1.\2', text )
 
-        # جدا کننده هزارگان: 10، 000 -> 10,000 (اگر هدف تبدیل به فرمت انگلیسی است)
-        text = re.sub( r'(\d)\s*،\s*(\d)', r'\1,\2', text )
+        # هزارگان: حذف فاصله و تبدیل کاما
+        # ابتدا کاما فارسی → کاما انگلیسی
+        text = re.sub( r'(?<=\d)\s*،\s*(?=\d{3}(?:\D|$))', ',', text )
+
+        # حذف فاصله اضافی کنار کاما
+        text = re.sub( r'(?<=\d)\s*,\s*(?=\d)', ',', text )
 
         # درصد: 60 ٪ -> 60%
-        text = re.sub( r'(\d)\s+٪', r'\1%', text )
-        text = re.sub( r'(\d)\s+%', r'\1%', text )
+        text = re.sub( r'(\d)\s+[٪%]', r'\1%', text )
 
         return text
 
-    def _fix_punctuation_spaces( self, text: str ) -> str:
-        """اضافه کردن فاصله بعد از علائم نگارشی"""
-        # نقطه، ویرگول، علامت سوال، تعجب
-        text = re.sub( r'([.،؛:!?])([^\s\d])', r'\1 \2', text )
+    def _fix_spacing_and_punctuation( self, text: str ) -> str:
+        """
+        ادغام شده: حذف فاصله‌های اضافی و اصلاح فاصله علائم نگارشی
+        ترتیب اجرا بسیار مهم است تا نتیجه نهایی صحیح باشد.
+        """
+
+        # 1. اضافه کردن فاصله بعد از علائم (اگر جا افتاده باشد)
+        # نکته: ما فقط بعد از علائم فاصله اضافه می‌کنیم.
+        # اصلاح باگ قبلی: شرط (?=\S) یعنی هر کاراکتر غیرفاصله (شامل عدد و حرف)
+        text = re.sub( r'([.،؛!?])(?=\S)', r'\1 ', text )
+
+        # 2. اصلاح فاصله بعد از دو نقطه (با احتیاط برای لینک‌ها)
+        # اگر قبلش اسلش یا عدد نبود (برای جلوگیری از خراب کردن http:// یا ساعت 12:30)
+        text = re.sub( r'(?<![:/])(?<!\d):(?!\d)', r': ', text )
+
+        # 3. حذف فاصله قبل از علائم نگارشی (بسته شدن پرانتز، کاما، نقطه و ...)
+        # این کار باید بعد از مرحله 1 انجام شود تا تداخل نداشته باشد
+        punctuations_no_space_before = r'([.,;:!?،؛ـ\)\]}"\'»«])'
+        text = re.sub( rf'\s+{punctuations_no_space_before}', r'\1', text )
+
+        # 4. حذف فاصله بعد از علائم باز (پرانتز باز، گیومه باز)
+        text = re.sub( r'([(\["\'«])\s+', r'\1', text )
+
+        # 5. تبدیل چند فاصله پشت سر هم به یک فاصله (General Cleanup)
+        # این کار باید در انتها انجام شود تا نتیجه مراحل بالا تمیز شود
+        text = re.sub( r' +', ' ', text )
+
+        # 6. حذف فاصله‌های ابتدا و انتها
+        text = text.strip()
+
         return text
 
     def normalize( self, text: str, remove_diacritics: bool = True, remove_kashida: bool = True ) -> str:
@@ -155,10 +163,7 @@ class PersianNormalizer:
             text = self._fix_number_punctuation( text )
 
             # 7. اضافه کردن فاصله بعد از علائم نگارشی
-            text = self._fix_punctuation_spaces( text )
-
-            # 8. حذف فاصله‌های اضافی و اصلاح علائم نگارشی
-            text = self._remove_extra_spaces( text )
+            text = self._fix_spacing_and_punctuation( text )
 
             return text
 

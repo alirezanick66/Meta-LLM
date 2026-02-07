@@ -20,6 +20,7 @@ data/bm25_cache/*
 !data/processed/.gitkeep
 !data/chunks/.gitkeep
 data/chunks/*
+backend/data/test/*
 
 # Logs
 data/logs
