@@ -119,6 +119,12 @@ class PersianNormalizer:
 
         return text
 
+    def _fix_punctuation_spaces( self, text: str ) -> str:
+        """اضافه کردن فاصله بعد از علائم نگارشی"""
+        # نقطه، ویرگول، علامت سوال، تعجب
+        text = re.sub( r'([.،؛:!?])([^\s\d])', r'\1 \2', text )
+        return text
+
     def normalize( self, text: str, remove_diacritics: bool = True, remove_kashida: bool = True ) -> str:
         """
         نرمال‌سازی کامل متن فارسی
@@ -148,7 +154,10 @@ class PersianNormalizer:
             # 6. اصلاح علائم در اعداد
             text = self._fix_number_punctuation( text )
 
-            # 7. حذف فاصله‌های اضافی و اصلاح علائم نگارشی
+            # 7. اضافه کردن فاصله بعد از علائم نگارشی
+            text = self._fix_punctuation_spaces( text )
+
+            # 8. حذف فاصله‌های اضافی و اصلاح علائم نگارشی
             text = self._remove_extra_spaces( text )
 
             return text
