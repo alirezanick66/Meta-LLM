@@ -178,4 +178,4 @@ class PersianNormalizer:
 
 
 # Instance سراسری
-persian_normalizer = PersianNormalizer( use_hazm=True )
+persian_normalizer = PersianNormalizer( use_hazm=False )
