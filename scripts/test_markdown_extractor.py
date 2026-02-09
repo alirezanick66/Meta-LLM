@@ -15,8 +15,3 @@ extracted_text, metadata = MarkdownExtractor().extract_from_markdown( file_path 
 # نوشتن متن استخراج شده در فایل
 with open( "backend/data/test/extracted_text.txt", "w", encoding="utf-8" ) as f:
     f.write( extracted_text )
-
-# # تست 1: فاصله دوتایی
-# text1 = "ساعت 10:30 است"
-# result1 = persian_normalizer.normalize( text1 )
-# log_message( LG.DataProcessing, f"نتیجه نرمال‌سازی: '{result1}'", LogLevel.INFO )

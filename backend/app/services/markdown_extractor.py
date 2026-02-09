@@ -163,7 +163,7 @@ class MarkdownExtractor:
         content = re.sub( r'^>\s+', '', content, flags=re.MULTILINE )
 
         # 8. حذف علامت # از headings ولی متن رو نگه دار
-        content = re.sub( r'^#{1,6}\s+', '', content, flags=re.MULTILINE )
+        # content = re.sub( r'^#{1,6}\s+', '', content, flags=re.MULTILINE )
 
         # 9. حذف code blocks (```code```)
         content = re.sub( r'```[\s\S]*?```', '', content )
