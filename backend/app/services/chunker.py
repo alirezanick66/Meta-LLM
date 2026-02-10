@@ -91,7 +91,8 @@ class MarkdownChunker:
 
             # اصلاح حلقه:
             for sub_text in sub_chunks:
-                final_content = f"{header_str}\n\n{sub_text}" if header_str else sub_text
+                clean_text = re.sub( r'^#{1,6}\s+', '', sub_text, flags=re.MULTILINE )
+                final_content = f"{header_str}\n\n{clean_text}" if header_str else clean_text
 
                 chunk_data = {
                     "chunk_id": f"doc_{doc_id}_chunk_{global_chunk_index:03d}",          # ✅ ID یکتا
