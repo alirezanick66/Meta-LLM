@@ -1,3 +1,4 @@
+import hashlib
 from typing import List, Dict, Any, Optional
 from qdrant_client import QdrantClient
 from qdrant_client.models import ( Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue )
@@ -13,7 +14,7 @@ class QdrantManager:
     def __init__( self ):
         self.client = None
         self.collection_name = settings.QDRANT_COLLECTION_NAME
-        self.vector_size = 1024          # BGE-M3 embedding size
+        self.vector_size = settings.EMBEDDING_VECTOR_DIM
         self._connect()
 
     def _connect( self ):
@@ -25,6 +26,12 @@ class QdrantManager:
         except Exception as e:
             log_message( LG.Database, f"خطا در اتصال به Qdrant: {str(e)}", LogLevel.ERROR )
             raise
+
+    @staticmethod
+    def _generate_point_id( chunk_id: str ) -> int:
+        """تبدیل chunk_id به یک عدد یکتا بدون collision"""
+        hash_bytes = hashlib.sha256( chunk_id.encode() ).digest()[ :8 ]
+        return int.from_bytes( hash_bytes, byteorder='big' )
 
     def _create_collection_if_not_exists( self ):
         """ایجاد کالکشن اگر وجود نداشته باشد"""
@@ -54,14 +61,13 @@ class QdrantManager:
         """
         try:
             points = []
-            for idx, ( chunk_id, embedding, meta ) in enumerate( zip( chunk_ids, embeddings, metadata ) ):
-                point = PointStruct(
-                    id=hash( chunk_id ) % ( 10 ** 10 ),          # تبدیل chunk_id به عدد یکتا
-                    vector=embedding,
-                    payload={
-                        "chunk_id": chunk_id,
-                        **meta
-                    } )
+            for chunk_id, embedding, meta in zip( chunk_ids, embeddings, metadata ):
+                point = PointStruct( id=self._generate_point_id( chunk_id ),
+                                     vector=embedding,
+                                     payload={
+                                         "chunk_id": chunk_id,
+                                         **meta
+                                     } )
                 points.append( point )
 
             self.client.upsert( collection_name=self.collection_name, points=points )          # type: ignore
@@ -139,4 +145,5 @@ class QdrantManager:
 
 
 # Instance سراسری
-qdrant_manager = QdrantManager()
+def get_qdrant_manager():
+    return QdrantManager()

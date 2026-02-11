@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.core.config import settings
 from backend.app.core.database import check_db_connection, init_db
-from backend.app.db.qdrant_client import qdrant_manager
+from backend.app.db.qdrant_client import get_qdrant_manager
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 
@@ -26,6 +26,7 @@ async def lifespan( app: FastAPI ):
 
     # چک کردن Qdrant
     try:
+        qdrant_manager = get_qdrant_manager()
         info = qdrant_manager.get_collection_info()
         log_message( LG.Database, f"✅ Qdrant متصل است - Vectors: {info.get('vectors_count', 0)}", LogLevel.INFO )
     except Exception as e:
@@ -70,6 +71,7 @@ async def health_check():
     db_status = check_db_connection()
 
     try:
+        qdrant_manager = get_qdrant_manager()
         qdrant_info = qdrant_manager.get_collection_info()
         qdrant_status = True
     except Exception as e:

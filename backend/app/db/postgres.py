@@ -159,3 +159,11 @@ class PostgresManager:
     def get_total_documents_count( self ) -> int:
         """تعداد کل اسناد در دیتابیس"""
         return self.db.query( Document ).count()
+
+    def get_all_chunks( self ) -> List[ Chunk ]:
+        """دریافت تمام chunks از دیتابیس"""
+        try:
+            return self.db.query( Chunk ).all()
+        except Exception as e:
+            log_message( LG.Database, f"خطا در دریافت تمام chunks: {str(e)}", LogLevel.ERROR )
+            return []

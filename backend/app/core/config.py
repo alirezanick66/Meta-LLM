@@ -16,7 +16,7 @@ class Settings( BaseSettings ):
     GROQ_API_KEY: str = ""
 
     # ==================== PostgreSQL ====================
-    POSTGRES_HOST: str = "postgres"
+    POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "meta_db"
     POSTGRES_USER: str = "postgres"
@@ -29,12 +29,12 @@ class Settings( BaseSettings ):
                  f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}" )
 
     # ==================== Qdrant ====================
-    QDRANT_HOST: str = "qdrant"
+    QDRANT_HOST: str = "localhost"
     QDRANT_PORT: int = 6333
     QDRANT_COLLECTION_NAME: str = "meta_documents"
 
     # ==================== Redis ====================
-    REDIS_HOST: str = "redis"
+    REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
     REDIS_PASSWORD: str = ""
