@@ -18,14 +18,25 @@ class QdrantManager:
         self._connect()
 
     def _connect( self ):
-        """اتصال به Qdrant"""
+        """
+        اتصال به Qdrant 
+        
+        """
         try:
+            log_message( LG.Database, f"تلاش برای اتصال به Qdrant...", LogLevel.INFO )
+
             self.client = QdrantClient( host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=60 )
-            log_message( LG.Database, "اتصال به Qdrant با موفقیت برقرار شد", LogLevel.INFO )
+
+            # ✅ تست اتصال با فراخوانی یک متد ساده
+            self.client.get_collections()
+
+            log_message( LG.Database, "✅ اتصال به Qdrant با موفقیت برقرار شد", LogLevel.INFO )
             self._create_collection_if_not_exists()
+            return          # موفقیت
+
         except Exception as e:
-            log_message( LG.Database, f"خطا در اتصال به Qdrant: {str(e)}", LogLevel.ERROR )
-            raise
+            log_message( LG.Database, f"❌ خطا در اتصال به Qdrant بعد از تلاش: {str(e)}", LogLevel.ERROR )
+            raise ConnectionError( f"امکان اتصال به Qdrant وجود ندارد: {str(e)}" )
 
     @staticmethod
     def _generate_point_id( chunk_id: str ) -> int:
@@ -36,6 +47,7 @@ class QdrantManager:
     def _create_collection_if_not_exists( self ):
         """ایجاد کالکشن اگر وجود نداشته باشد"""
         try:
+
             if self.client is not None:          #اگه اتصال برقرار شده بود
                 collections = self.client.get_collections().collections          #لیست کالکشن های موجود در Qdrant
                 collection_names = [ col.name for col in collections ]
@@ -59,6 +71,9 @@ class QdrantManager:
         """
         درج دسته‌جمعی vectors
         """
+        if self.client is None:
+            log_message( LG.Database, "❌ Qdrant client اتصال برقرار نشده است", LogLevel.ERROR )
+            return False
         try:
             points = []
             for chunk_id, embedding, meta in zip( chunk_ids, embeddings, metadata ):
@@ -70,7 +85,7 @@ class QdrantManager:
                                      } )
                 points.append( point )
 
-            self.client.upsert( collection_name=self.collection_name, points=points )          # type: ignore
+            self.client.upsert( collection_name=self.collection_name, points=points )
             log_message( LG.Database, f"{len(points)} vector به Qdrant اضافه شد", LogLevel.INFO )
             return True
         except Exception as e:

@@ -75,7 +75,7 @@ class IndexingPipeline:
                 else:
                     log_message( LG.DataProcessing, f"🔄 فایل تغییر کرده، در حال به‌روزرسانی: {filename}", LogLevel.INFO )
                     # حذف اطلاعات قبلی
-                    self._delete_document_data( existing_doc.id )
+                    self._delete_document_data( existing_doc.id )          # type: ignore
 
             # ==================== مرحله 2: استخراج متن ====================
             log_message( LG.DataProcessing, "📄 مرحله 1: استخراج متن از Markdown...", LogLevel.INFO )
@@ -101,9 +101,10 @@ class IndexingPipeline:
             # ==================== مرحله 4: Chunking ====================
             log_message( LG.DataProcessing, "🧩 مرحله 3: Chunking متن...", LogLevel.INFO )
 
-            chunks = self.chunker.create_chunks( markdown_text=normalized_text,
-                                                 doc_id=document.id,
-                                                 source_file=filename )
+            chunks = self.chunker.create_chunks(
+                markdown_text=normalized_text,
+                doc_id=document.id,          # type: ignore
+                source_file=filename )
 
             if not chunks:
                 raise ValueError( "هیچ chunk ای ساخته نشد" )
@@ -135,7 +136,7 @@ class IndexingPipeline:
                 raise RuntimeError( "خطا در ذخیره chunks در PostgreSQL" )
 
             # به‌روزرسانی تعداد chunks در document
-            self.db.update_document_chunks_count( document.id, len( chunks ) )
+            self.db.update_document_chunks_count( document.id, len( chunks ) )          # type: ignore
 
             log_message( LG.DataProcessing, f"✅ {len(chunks)} chunk در PostgreSQL ذخیره شد", LogLevel.INFO )
 
@@ -194,7 +195,7 @@ class IndexingPipeline:
                 try:
                     log_message( LG.DataProcessing, f"🔄 برگرداندن تغییرات - حذف document {document.id}...",
                                  LogLevel.WARNING )
-                    self.db.delete_document( document.id )
+                    self.db.delete_document( document.id )          # type: ignore
                 except Exception as rollback_error:
                     log_message( LG.DataProcessing, f"خطا در rollback: {str(rollback_error)}", LogLevel.ERROR )
 

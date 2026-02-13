@@ -19,7 +19,6 @@ class PostgresManager:
         filename: str,
         file_path: str,
         file_hash: str,
-        total_pages: Optional[ int ] = None,
         total_chunks: int = 0,
     ) -> Document:
         """ایجاد سند جدید"""
@@ -28,7 +27,6 @@ class PostgresManager:
                 file_name=filename,
                 file_path=file_path,
                 file_hash=file_hash,
-                total_pages=total_pages,
                 total_chunks=total_chunks,
             )
             self.db.add( document )

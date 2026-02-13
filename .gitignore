@@ -14,12 +14,7 @@ venv/
 *.swo
 
 # Data files
-data/processed/*
-data/bm25_cache/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-!data/chunks/.gitkeep
-data/chunks/*
+backend/data/storage/*
 backend/data/test/*
 
 # Logs

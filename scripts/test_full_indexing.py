@@ -59,3 +59,6 @@ def test_full_indexing():
     finally:
         db.close()
         log_message( LG.DataProcessing, "🔚 پایان تست", LogLevel.INFO )
+
+
+test_full_indexing()
