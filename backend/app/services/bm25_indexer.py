@@ -192,7 +192,11 @@ class BM25Indexer:
             results = []
             for idx in top_indices:
                 if scores[ idx ] > 0:
-                    results.append( {...} )
+                    results.append( {
+                        'chunk_id': self.chunk_ids[ idx ],
+                        'score': float( scores[ idx ] ),
+                        'content': self.chunk_contents[ idx ]
+                    } )
             return results
 
         except Exception as e:

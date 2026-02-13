@@ -194,7 +194,7 @@ class IndexingPipeline:
             if document:
                 try:
                     log_message( LG.DataProcessing, f"🔄 برگرداندن تغییرات - حذف document {document.id}...",
-                                 LogLevel.WARNING )
+                                 LogLevel.ERROR )
                     self.db.delete_document( document.id )          # type: ignore
                 except Exception as rollback_error:
                     log_message( LG.DataProcessing, f"خطا در rollback: {str(rollback_error)}", LogLevel.ERROR )

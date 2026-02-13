@@ -86,21 +86,21 @@ class PostgresManager:
 
     # ==================== Chunk Operations ====================
 
-    def create_chunk( self,
-                      document_id: int,
-                      chunk_id: str,
-                      content: str,
-                      chunk_index: int,
-                      token_count: int,
-                      page_range: Optional[ str ] = None ) -> Chunk:
+    def create_chunk(
+        self,
+        document_id: int,
+        chunk_id: str,
+        content: str,
+        chunk_index: int,
+        token_count: int,
+    ) -> Chunk:
         """ایجاد chunk جدید"""
         try:
             chunk = Chunk( document_id=document_id,
                            chunk_id=chunk_id,
                            content=content,
                            chunk_index=chunk_index,
-                           token_count=token_count,
-                           page_range=page_range )
+                           token_count=token_count )
             self.db.add( chunk )
             self.db.commit()
             self.db.refresh( chunk )
