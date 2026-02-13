@@ -12,7 +12,7 @@ class QdrantManager:
     """
 
     def __init__( self ):
-        self.client = None
+        self.client: Optional[ QdrantClient ] = None
         self.collection_name = settings.QDRANT_COLLECTION_NAME
         self.vector_size = settings.EMBEDDING_VECTOR_DIM
         self._connect()
@@ -69,8 +69,8 @@ class QdrantManager:
     def insert_vectors( self, chunk_ids: List[ str ], embeddings: List[ List[ float ] ],
                         metadata: List[ Dict[ str, Any ] ] ) -> bool:
         """
-        درج دسته‌جمعی vectors
-        """
+         درج دسته‌جمعی vectors
+            """
         if self.client is None:
             log_message( LG.Database, "❌ Qdrant client اتصال برقرار نشده است", LogLevel.ERROR )
             return False
@@ -97,33 +97,37 @@ class QdrantManager:
                         top_k: int = 20,
                         document_id: Optional[ int ] = None ) -> List[ Dict[ str, Any ] ]:
         """
-        جستجوی semantic با vector
-        
-        Args:
-            query_vector: embedding سوال
-            top_k: تعداد نتایج
-            document_id: فیلتر بر اساس document_id (اختیاری)
-        """
+            جستجوی semantic با vector
+            
+            Args:
+                query_vector: embedding سوال
+                top_k: تعداد نتایج
+                document_id: فیلتر بر اساس document_id (اختیاری)
+            """
+        if self.client is None:
+            return []
         try:
             query_filter = None
             if document_id:
                 query_filter = Filter(
                     must=[ FieldCondition( key="document_id", match=MatchValue( value=document_id ) ) ] )
 
-            results = self.client.search(          # type: ignore
+            results = self.client.query_points(
                 collection_name=self.collection_name,
-                query_vector=query_vector,
+                query=query_vector,
                 limit=top_k,
                 query_filter=query_filter,
-            )
+                with_payload=True,          # ← اضافه کن
+            ).points          # خروجی این متد یک شیء است که فیلد points دارد
 
             # تبدیل نتایج به format مناسب
             formatted_results = []
             for result in results:
+                payload = result.payload or {}
                 formatted_results.append( {
-                    "chunk_id": result.payload.get( "chunk_id" ),
+                    "chunk_id": payload.get( "chunk_id" ),
                     "score": result.score,
-                    "metadata": result.payload
+                    "metadata": payload
                 } )
 
             log_message( LG.Retrieval, f"{len(formatted_results)} نتیجه از Qdrant بازگردانده شد", LogLevel.DEBUG )

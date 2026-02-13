@@ -46,11 +46,16 @@ class MarkdownChunker:
             separators=[ "\n\n", "\n", "،", ".", " ", "" ],
         )
 
-    def _get_header_string( self, metadata: Dict ) -> str:
+    def _get_header_string( self, metadata: Dict, include_breadcrumb: bool = False ) -> str:
         """ساخت هدر تمیز برای تزریق"""
         h1 = metadata.get( "Header 1", "" )
         h2 = metadata.get( "Header 2", "" )
         h3 = metadata.get( "Header 3", "" )
+
+        if h1 and ">" in h1 and not include_breadcrumb:
+            # فقط آخرین بخش رو بگیر (title واقعی)
+            h1 = h1.split( ">" )[ -1 ].strip()
+
         parts = [ p for p in [ h1, h2, h3 ] if p ]
         return " > ".join( parts )
 
@@ -90,9 +95,12 @@ class MarkdownChunker:
             elif title: heading_level = 1
 
             # اصلاح حلقه:
-            for sub_text in sub_chunks:
+            for idx, sub_text in enumerate( sub_chunks ):
                 clean_text = re.sub( r'^#{1,6}\s+', '', sub_text, flags=re.MULTILINE )
-                final_content = f"{header_str}\n\n{clean_text}" if header_str else clean_text
+                if idx == 0 and header_str:
+                    final_content = f"{header_str}\n\n{clean_text}"
+                else:
+                    final_content = clean_text
 
                 chunk_data = {
                     "chunk_id": f"doc_{doc_id}_chunk_{global_chunk_index:03d}",          # ✅ ID یکتا
@@ -109,7 +117,6 @@ class MarkdownChunker:
                         "chunk_index": global_chunk_index,
                         "has_list": self._detect_list( sub_text ),
                         "heading_level": heading_level
-                # total_chunks حذف شد (بهتر است در دیتابیس محاسبه شود)
                     }
                 }
                 final_chunks.append( chunk_data )
