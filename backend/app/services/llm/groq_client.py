@@ -1,38 +1,28 @@
-from typing import Optional, Dict, Any, List
-from groq import Groq
+from typing import Optional, Dict, List, TypedDict
+from groq import APIError, Groq
 from groq.types.chat import ChatCompletionMessageParam
 from backend.app.core.config import settings
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 
+class LLMResponse( TypedDict ):
+    success: bool
+    content: Optional[ str ]
+    model: str
+    usage: Dict[ str, int ]
+    error: Optional[ str ]
+
+
 class GroqClient:
     """
     کلاینت Groq API برای تولید پاسخ با LLM
-    
-    مدل‌های پشتیبانی شده:
-    - llama-3.3-70b-versatile (پیشنهادی)
-    - llama-3.1-70b-versatile
-    - mixtral-8x7b-32768
     """
 
-    def __init__(
-        self,
-        api_key: Optional[ str ] = None,
-        model: str = "llama-3.3-70b-versatile",
-        temperature: float = 0.3,
-        max_tokens: int = 2048,
-    ):
-        """
-        Args:
-            api_key: Groq API key (اگه None باشه از settings میگیره)
-            model: نام مدل
-            temperature: خلاقیت (0-1، کمتر = دقیق‌تر)
-            max_tokens: حداکثر طول پاسخ
-        """
-        self.api_key = api_key or settings.GROQ_API_KEY
-        self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+    def __init__( self ):
+        self.api_key = settings.GROQ_API_KEY
+        self.model = settings.GROQ_MODEL
+        self.default_temperature = settings.TEMPERATURE
+        self.default_max_tokens = settings.MAX_TOKENS
 
         if not self.api_key:
             raise ValueError( "GROQ_API_KEY یافت نشد!" )
@@ -42,145 +32,73 @@ class GroqClient:
 
         log_message(
             LG.LLM,
-            f"GroqClient آماده شد - Model: {model}, Temp: {temperature}",
+            f"GroqClient آماده شد - Model: {self.model}, Temp: {self.default_temperature}",
             LogLevel.INFO,
         )
 
-    def generate(
-        self,
-        prompt: str,
-        temperature: Optional[ float ] = None,
-        max_tokens: Optional[ int ] = None,
-    ) -> Dict[ str, Any ]:
+    def _execute_request( self,
+                          messages: List[ ChatCompletionMessageParam ],
+                          temperature: Optional[ float ] = None,
+                          max_tokens: Optional[ int ] = None ) -> LLMResponse:
         """
-        تولید پاسخ با Groq
-        
-        Args:
-            prompt: پرامپت کامل
-            temperature: override temperature (اختیاری)
-            max_tokens: override max_tokens (اختیاری)
-            
-        Returns:
-            {
-                'success': bool,
-                'content': str,
-                'model': str,
-                'usage': dict,
-                'error': str (در صورت خطا)
-            }
+        هسته مرکزی برای مدیریت تمام درخواست‌ها و خطاها (Internal Only)
         """
         try:
-            temp = temperature if temperature is not None else self.temperature
-            max_tok = max_tokens if max_tokens is not None else self.max_tokens
+            temp = temperature if temperature is not None else self.default_temperature
+            max_tok = max_tokens if max_tokens is not None else self.default_max_tokens
 
-            log_message(
-                LG.LLM,
-                f"🤖 ارسال درخواست به Groq (model: {self.model})...",
-                LogLevel.INFO,
-            )
-
-            # فراخوانی API
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[ {
-                    "role": "user",
-                    "content": prompt
-                } ],
+                messages=messages,
                 temperature=temp,
                 max_tokens=max_tok,
             )
 
-            # استخراج پاسخ
-            content = response.choices[ 0 ].message.content
+            # استخراج متمرکز داده‌ها
+            usage_data = response.usage
             usage = {
-                "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
-                "completion_tokens": response.usage.completion_tokens if response.usage else 0,
-                "total_tokens": response.usage.total_tokens if response.usage else 0,
+                "prompt_tokens": usage_data.prompt_tokens if usage_data else 0,
+                "completion_tokens": usage_data.completion_tokens if usage_data else 0,
+                "total_tokens": usage_data.total_tokens if usage_data else 0,
             }
-
-            log_message(
-                LG.LLM,
-                f"✅ پاسخ دریافت شد - Tokens: {usage['total_tokens']}",
-                LogLevel.INFO,
-            )
-
-            return {
-                "success": True,
-                "content": content,
-                "model": self.model,
-                "usage": usage,
-            }
-
-        except Exception as e:
-            log_message( LG.LLM, f"❌ خطا در Groq API: {str(e)}", LogLevel.ERROR )
-            return { "success": False, "error": str( e ) }
-
-    def chat(
-        self,
-        messages: List[ ChatCompletionMessageParam ],
-        temperature: Optional[ float ] = None,
-        max_tokens: Optional[ int ] = None,
-    ) -> Dict[ str, Any ]:
-        """
-        چت با history (برای گفتگوهای چند نوبتی)
-        
-        Args:
-            messages: لیست پیام‌ها [{"role": "user/assistant", "content": "..."}]
-            temperature: override temperature
-            max_tokens: override max_tokens
-            
-        Returns:
-            همان فرمت generate()
-        """
-        try:
-            temp = temperature if temperature is not None else self.temperature
-            max_tok = max_tokens if max_tokens is not None else self.max_tokens
-
-            log_message(
-                LG.LLM,
-                f"💬 ارسال chat با {len(messages)} پیام به Groq...",
-                LogLevel.INFO,
-            )
-
-            response = self.client.chat.completions.create( model=self.model,
-                                                            messages=messages,
-                                                            temperature=temp,
-                                                            max_tokens=max_tok )
 
             content = response.choices[ 0 ].message.content
-            usage = {
-                "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
-                "completion_tokens": response.usage.completion_tokens if response.usage else 0,
-                "total_tokens": response.usage.total_tokens if response.usage else 0,
-            }
 
-            log_message(
-                LG.LLM,
-                f"✅ پاسخ chat دریافت شد - Tokens: {usage['total_tokens']}",
-                LogLevel.INFO,
-            )
+            return LLMResponse( success=True, content=content, model=self.model, usage=usage, error=None )
 
-            return {
-                "success": True,
-                "content": content,
-                "model": self.model,
-                "usage": usage,
-            }
+        except APIError as e:          # خطاهای اختصاصی Groq
+            error_msg = f"Groq API Error: {e.message}"
+            log_message( LG.LLM, f"❌ {error_msg}", LogLevel.ERROR )
+            return self._create_error_result( error_msg )
 
         except Exception as e:
-            log_message( LG.LLM, f"❌ خطا در Groq chat: {str(e)}", LogLevel.ERROR )
-            return { "success": False, "error": str( e ) }
+            error_msg = f"Unexpected Error: {str(e)}"
+            log_message( LG.LLM, f"❌ {error_msg}", LogLevel.ERROR )
+            return self._create_error_result( error_msg )
+
+    def _create_error_result( self, error_msg: str ) -> LLMResponse:
+        """کمک به یکپارچگی خروجی‌های خطا"""
+        return LLMResponse( success=False,
+                            content=None,
+                            model=self.model,
+                            usage={
+                                "prompt_tokens": 0,
+                                "completion_tokens": 0,
+                                "total_tokens": 0
+                            },
+                            error=error_msg )
+
+    def generate( self, prompt: str, **kwargs ) -> LLMResponse:
+        """تولید پاسخ برای یک پرامپت تکی"""
+        log_message( LG.LLM, f"🤖 ارسال Single Prompt به {self.model}...", LogLevel.INFO )
+        messages: List[ ChatCompletionMessageParam ] = [ { "role": "user", "content": prompt } ]
+        return self._execute_request( messages, **kwargs )
+
+    def chat( self, messages: List[ ChatCompletionMessageParam ], **kwargs ) -> LLMResponse:
+        """چت چند نوبتی با تاریخچه"""
+        log_message( LG.LLM, f"💬 ارسال Chat Context ({len(messages)} پیام)...", LogLevel.INFO )
+        return self._execute_request( messages, **kwargs )
 
 
-def create_groq_client( model: str = "llama-3.3-70b-versatile", temperature: float = 0.3 ) -> GroqClient:
-    """
-    ساخت instance از GroqClient
-    
-    Args:
-        model: نام مدل
-        temperature: دمای تولید
-        
-    Returns:
-        GroqClient instance
-    """
-    return GroqClient( model=model, temperature=temperature )
+def create_groq_client() -> GroqClient:
+    return GroqClient()

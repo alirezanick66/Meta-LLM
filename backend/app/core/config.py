@@ -64,5 +64,17 @@ class Settings( BaseSettings ):
     API_PORT: int = 8000
     API_RELOAD: bool = True
 
+    # ====================LLM Settings====================
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
+    LLM_PRIMARY: str = "groq"
+    LLM_FALLBACK: str = "gemini"
+
+    TEMPERATURE: float = 0.3          #میزان خلاقیت پاسخ‌ها از 0 تا 2
+    MAX_TOKENS: int = 2048
+    LLM_TIMEOUT: int = 5
+    LLM_MAX_RETRIES: int = 3
+
 
 settings = Settings()

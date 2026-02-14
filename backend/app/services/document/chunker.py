@@ -4,6 +4,7 @@ from transformers import AutoTokenizer
 from langchain_text_splitters import RecursiveCharacterTextSplitter, MarkdownHeaderTextSplitter
 from backend.app.core.config import settings
 from backend.app.utils.logging_config import log_message, LG, LogLevel
+from backend.app.services.tokenizer_service import tokenizer_service
 
 # ==========================================
 # توکنایزر BGE-M3
@@ -11,17 +12,6 @@ from backend.app.utils.logging_config import log_message, LG, LogLevel
 log_message( LG.DataProcessing, "Initializing tokenizer for chunking...", LogLevel.INFO )
 tokenizer = AutoTokenizer.from_pretrained( settings.EMBEDDING_MODEL )
 log_message( LG.DataProcessing, "Tokenizer loaded.", LogLevel.INFO )
-
-
-def count_tokens( text: str ) -> int:
-    if not text: return 0
-    return len( tokenizer.encode( text, add_special_tokens=False ) )
-
-
-def count_words( text: str ) -> int:
-    """شمارش کلمات بر اساس فاصله (سریع و کافی برای فارسی)"""
-    if not text: return 0
-    return len( text.split() )
 
 
 # ==========================================
@@ -42,7 +32,7 @@ class MarkdownChunker:
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
             chunk_overlap=settings.CHUNK_OVERLAP,
-            length_function=count_tokens,
+            length_function=tokenizer_service.count_tokens,
             separators=[ "\n\n", "\n", "،", ".", " ", "" ],
         )
 
@@ -78,7 +68,7 @@ class MarkdownChunker:
                 continue
 
             # تقسیم متن طولانی
-            if count_tokens( content_raw ) > settings.CHUNK_SIZE:
+            if tokenizer_service.count_tokens( content_raw ) > settings.CHUNK_SIZE:
                 sub_chunks = self.text_splitter.split_text( content_raw )
             else:
                 sub_chunks = [ content_raw ]
@@ -102,8 +92,8 @@ class MarkdownChunker:
                 chunk_data = {
                     "chunk_id": f"doc_{doc_id}_chunk_{global_chunk_index:03d}",          # ✅ ID یکتا
                     "content": final_content,
-                    "token_count": count_tokens( final_content ),
-                    "word_count": count_words( final_content ),
+                    "token_count": tokenizer_service.count_tokens( final_content ),
+                    "word_count": tokenizer_service.count_words( final_content ),
                     "metadata": {
                         "document_id": doc_id,
                         "source": source_file,
