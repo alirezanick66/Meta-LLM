@@ -13,8 +13,6 @@ class ResultKeys:
     CONTENT = "content"          # برای استفاده در BM25 و LLM Pipeline
 
 
-#vector_score
-#bm25_score
 class VectorRetriever:
     """
     جستجوی Semantic با استفاده از Vector Embeddings در Qdrant

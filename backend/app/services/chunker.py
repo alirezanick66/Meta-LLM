@@ -95,12 +95,9 @@ class MarkdownChunker:
             elif title: heading_level = 1
 
             # اصلاح حلقه:
-            for idx, sub_text in enumerate( sub_chunks ):
+            for sub_text in sub_chunks:
                 clean_text = re.sub( r'^#{1,6}\s+', '', sub_text, flags=re.MULTILINE )
-                if idx == 0 and header_str:
-                    final_content = f"{header_str}\n\n{clean_text}"
-                else:
-                    final_content = clean_text
+                final_content = clean_text
 
                 chunk_data = {
                     "chunk_id": f"doc_{doc_id}_chunk_{global_chunk_index:03d}",          # ✅ ID یکتا

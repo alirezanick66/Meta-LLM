@@ -5,7 +5,10 @@ from pathlib import Path
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
 from backend.app.services.hybrid_retriever import create_hybrid_retriever
+from backend.app.core.database import session_local
+from backend.app.db.postgres import PostgresManager
 from backend.app.utils.logging_config import log_message, LG, LogLevel
+
 from backend.app.services.vector_retriever import ResultKeys
 
 
@@ -26,11 +29,13 @@ def test_retrieval():
 
     # لیست query های تست
     test_queries = [
-        "انقلاب اسلامی چه تأثیری بر نظریه های غربی گذاشت؟",
-        "ویژگی های انقلاب اسلامی ایران چیست؟",
-        "تعریف نظام سیاسی",
-        "امام خمینی",
-        "مدرنیته و سنت",
+          # "انقلاب اسلامی چه تأثیری بر نظریه های غربی گذاشت؟",
+          # "اسم نویسنده کتاب؟"
+        "علی نیک"
+          # "ویژگی های انقلاب اسلامی ایران چیست؟",
+          # "تعریف نظام سیاسی",
+          # "امام خمینی",
+          # "مدرنیته و سنت",
     ]
 
     # تست هر query
@@ -50,6 +55,10 @@ def test_retrieval():
             # نمایش نتایج
             log_message( LG.Retrieval, f"\n📊 نتایج (تعداد: {len(results)}):", LogLevel.INFO )
             log_message( LG.Retrieval, "-" * 70, LogLevel.INFO )
+
+            # ایجاد session برای دریافت content
+            db = session_local()
+            pg_manager = PostgresManager( db )
 
             for rank, result in enumerate( results, start=1 ):
                 log_message( LG.Retrieval, f"\n🔹 Rank #{rank}", LogLevel.INFO )
@@ -75,11 +84,7 @@ def test_retrieval():
                     )
 
                 # روش های retrieval
-                methods_list = result.get( ResultKeys.RETRIEVAL_METHOD, [] )
-                if isinstance( methods_list, list ):
-                    methods = ", ".join( methods_list )
-                else:
-                    methods = str( methods_list )
+                methods = ", ".join( result[ ResultKeys.RETRIEVAL_METHOD ] )
                 log_message( LG.Retrieval, f"   Methods: {methods}", LogLevel.INFO )
 
                 # metadata
@@ -88,6 +93,18 @@ def test_retrieval():
                     hierarchy = metadata.get( "hierarchy", "N/A" )
                     log_message( LG.Retrieval, f"   Hierarchy: {hierarchy}", LogLevel.DEBUG )
 
+                # 🆕 نمایش محتوای chunk
+                try:
+                    content = pg_manager.get_chunk_content( result[ 'chunk_id' ] )
+
+                    if content:
+                        # نمایش 300 کاراکتر اول
+                        preview = content[ :300 ] + "..." if len( content ) > 300 else content
+                        log_message( LG.Retrieval, f"   📄 Content Preview:\n      {preview}", LogLevel.INFO )
+                except Exception as e:
+                    log_message( LG.Retrieval, f"   ⚠️ خطا در دریافت content: {str(e)}", LogLevel.WARNING )
+
+            db.close()
             log_message( LG.Retrieval, "-" * 70, LogLevel.INFO )
 
         except Exception as e:

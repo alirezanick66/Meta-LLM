@@ -2,7 +2,8 @@ import sys
 import shutil
 import subprocess
 from pathlib import Path
-
+import time
+import argparse
 # اضافه کردن مسیر پروژه
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
@@ -115,9 +116,9 @@ def cleanup_qdrant_and_bm25( restart_services: bool = True ):
                 return False
 
             # صبر کردن برای آماده شدن سرویس‌ها
-            import time
-            log_message( LG.Database, "⏳ صبر برای آماده شدن سرویس‌ها (5 ثانیه)...", LogLevel.INFO )
-            time.sleep( 5 )
+
+            log_message( LG.Database, "⏳ صبر برای آماده شدن سرویس‌ها (20 ثانیه)...", LogLevel.INFO )
+            time.sleep( 20 )
 
             # اجرای alembic migration
             log_message( LG.Database, "\n🔸 مرحله 3.5: اجرای Database Migration", LogLevel.INFO )
@@ -166,7 +167,6 @@ def cleanup_qdrant_and_bm25( restart_services: bool = True ):
 
 
 if __name__ == "__main__":
-    import argparse
 
     parser = argparse.ArgumentParser( description="🗑️ پاکسازی کامل Qdrant و BM25" )
     parser.add_argument( "--no-restart", action="store_true", help="بدون restart کردن سرویس‌های Docker" )
