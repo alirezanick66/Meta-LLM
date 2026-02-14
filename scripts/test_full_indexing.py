@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
 from backend.app.core.database import session_local
-from backend.app.services.indexing_pipeline import IndexingPipeline
+from backend.app.services.document.indexing_pipeline import IndexingPipeline
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 

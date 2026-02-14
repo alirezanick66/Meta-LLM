@@ -4,7 +4,7 @@ from pathlib import Path
 # اضافه کردن مسیر پروژه
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
-from backend.app.services.markdown_extractor import MarkdownExtractor
+from backend.app.services.document.markdown_extractor import MarkdownExtractor
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 from backend.app.utils.custom_normalizer import persian_normalizer
 

@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 from collections import defaultdict
-from backend.app.services.bm25_indexer import BM25Indexer
-from backend.app.services.vector_retriever import VectorRetriever, ResultKeys
+from backend.app.services.retrieval.bm25_indexer import BM25Indexer
+from backend.app.services.retrieval.vector_retriever import VectorRetriever, ResultKeys
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 
@@ -325,7 +325,7 @@ def create_hybrid_retriever(
     Returns:
         HybridRetriever instance
     """
-    from backend.app.services.vector_retriever import create_vector_retriever
+    from backend.app.services.retrieval.vector_retriever import create_vector_retriever
 
     bm25_indexer = BM25Indexer()
     vector_retriever = create_vector_retriever( top_k=vector_top_k )

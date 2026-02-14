@@ -5,7 +5,7 @@ from pathlib import Path
 # اضافه کردن مسیر پروژه
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 from backend.app.utils.logging_config import log_message, LG, LogLevel
-from backend.app.services.chunker import MarkdownChunker
+from backend.app.services.document.chunker import MarkdownChunker
 
 # ==========================================
 # تنظیمات تست

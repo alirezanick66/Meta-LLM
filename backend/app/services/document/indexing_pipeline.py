@@ -1,11 +1,11 @@
 from typing import Dict, Any
 from pathlib import Path
 from sqlalchemy.orm import Session
-from backend.app.services.markdown_extractor import markdown_extractor
-from backend.app.services.chunker import MarkdownChunker
+from backend.app.services.document.markdown_extractor import markdown_extractor
+from backend.app.services.document.chunker import MarkdownChunker
 from backend.app.services.embedding_service import get_embedding_service
 from backend.app.services.qdrant_indexer import create_qdrant_indexer
-from backend.app.services.bm25_indexer import BM25Indexer
+from backend.app.services.retrieval.bm25_indexer import BM25Indexer
 from backend.app.db.postgres import PostgresManager
 from backend.app.utils.hash_utils import calculate_file_hash
 from backend.app.utils.logging_config import log_message, LG, LogLevel

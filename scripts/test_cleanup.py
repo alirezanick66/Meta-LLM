@@ -8,7 +8,7 @@ import argparse
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
 from backend.app.db.qdrant_client import get_qdrant_manager
-from backend.app.services.bm25_indexer import BM25Indexer
+from backend.app.services.retrieval.bm25_indexer import BM25Indexer
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 from backend.app.core.config import settings
 

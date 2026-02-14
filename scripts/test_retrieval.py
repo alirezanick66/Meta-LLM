@@ -4,12 +4,12 @@ from pathlib import Path
 # اضافه کردن مسیر پروژه
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
-from backend.app.services.hybrid_retriever import create_hybrid_retriever
+from backend.app.services.retrieval.hybrid_retriever import create_hybrid_retriever
 from backend.app.core.database import session_local
 from backend.app.db.postgres import PostgresManager
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
-from backend.app.services.vector_retriever import ResultKeys
+from backend.app.services.retrieval.vector_retriever import ResultKeys
 
 
 def test_retrieval():
