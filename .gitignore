@@ -27,3 +27,6 @@ Thumbs.db
 
 #Documents
 backend/data/documents/
+
+#FRONTEND
+frontend/node_modules/**
