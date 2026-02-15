@@ -318,17 +318,20 @@ INDEX idx_chunks_chunk_index
 - ⬜ Redis caching strategy
 - ⬜ Query cache
 - ⬜ Embedding cache
+- ⬜Response cache
 
-#### ⚫ **فاز 8: Logging & Monitoring** ✅
+#### ⚫ **فاز 8: Logging & Monitoring**
 
-- ✅ Loguru configuration
-- ✅ Structured logging (فارسی)
-- ✅ Error tracking
+- ⬜ Loguru configuration
+- ⬜ Structured logging (فارسی)
+- ⬜ Error tracking
 
 #### 🔴 **فاز 9: API Layer**
 
+-⬜FastAPI app structure
+
 - ⬜ Chat endpoint
-- ⬜ Request/Response schemas
+- ⬜ Request/Response schemas (Pydantic)
 - ⬜ Error handling
 
 #### 🟠 **فاز 10: Frontend**
@@ -336,6 +339,8 @@ INDEX idx_chunks_chunk_index
 - ⬜ React + Vite
 - ⬜ Tailwind UI
 - ⬜ Chat Interface
+- ⬜ API integration
+  -⬜ Source display
 
 #### 🟡 **فاز 11: Integration & Testing**
 
@@ -355,6 +360,7 @@ INDEX idx_chunks_chunk_index
 
 - Redis Caching
 - Query optimization
+- Embedding cache
 - Response caching
 
 ### 🟡 **Priority 2 (Nice to Have)**
