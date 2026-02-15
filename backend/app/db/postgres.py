@@ -1,5 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from backend.app.db.models import Document, Chunk
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
@@ -23,65 +24,64 @@ class PostgresManager:
     ) -> Document:
         """ایجاد سند جدید"""
         try:
-            document = Document(
+            doc = Document(
                 file_name=filename,
                 file_path=file_path,
                 file_hash=file_hash,
                 total_chunks=total_chunks,
             )
-            self.db.add( document )
+            self.db.add( doc )
             self.db.commit()
-            self.db.refresh( document )
-            log_message( LG.Database, f"سند جدید ایجاد شد: {filename}", LogLevel.INFO )
-            return document
+            self.db.refresh( doc )
+            log_message( LG.Database, f"✅ سند ایجاد شد: {filename}", LogLevel.INFO )
+            return doc
         except Exception as e:
             self.db.rollback()
-            log_message( LG.Database, f"خطا در ایجاد سند: {str(e)}", LogLevel.ERROR )
+            log_message( LG.Database, f"❌ خطا در ایجاد سند: {str(e)}", LogLevel.ERROR )
             raise
 
     def get_document_by_id( self, document_id: int ) -> Optional[ Document ]:
-        """دریافت سند با ID"""
-        return self.db.query( Document ).filter( Document.id == document_id ).first()
-
-    def get_document_by_filename( self, filename: str ) -> Optional[ Document ]:
-        """دریافت سند با نام فایل"""
-        return self.db.query( Document ).filter( Document.file_name == filename ).first()
+        """دریافت سند با ID (بسیار سریع با استفاده از Session.get)"""
+        return self.db.get( Document, document_id )
 
     def get_document_by_hash( self, file_hash: str ) -> Optional[ Document ]:
         """دریافت سند با hash"""
-        return self.db.query( Document ).filter( Document.file_hash == file_hash ).first()
+        return self.db.query( Document ).filter_by( file_hash=file_hash ).first()
+
+    def get_document_by_filename( self, filename: str ) -> Optional[ Document ]:
+        """دریافت سند با نام فایل"""
+        return self.db.query( Document ).filter_by( file_name=filename ).first()
 
     def get_all_documents( self ) -> List[ Document ]:
         """دریافت تمام اسناد"""
         return self.db.query( Document ).all()
 
     def update_document_chunks_count( self, document_id: int, total_chunks: int ) -> bool:
-        """به‌روزرسانی تعداد chunks یک سند"""
+        """به‌روزرسانی تعداد chunks"""
         try:
-            self.db.query( Document ).filter( Document.id == document_id ).update(
-                { Document.total_chunks: total_chunks } )
+            # استفاده از filter_by برای خوانایی بیشتر
+            self.db.query( Document ).filter_by( id=document_id ).update( { Document.total_chunks: total_chunks } )
             self.db.commit()
-            log_message( LG.Database, f"تعداد chunks سند {document_id} به‌روز شد", LogLevel.INFO )
             return True
-
         except Exception as e:
             self.db.rollback()
-            log_message( LG.Database, f"خطا در به‌روزرسانی سند: {str(e)}", LogLevel.ERROR )
+            log_message( LG.Database, f"❌ خطا در آپدیت سند: {str(e)}", LogLevel.ERROR )
             return False
 
     def delete_document( self, document_id: int ) -> bool:
-        """حذف سند (chunks هم به صورت خودکار حذف می‌شن)"""
+        """
+        حذف سند 
+        chunks به دلیل Cascade در مدل DB خودکار حذف می‌شوند.
+        """
         try:
-            document = self.get_document_by_id( document_id )
-            if document:
-                self.db.delete( document )
-                self.db.commit()
-                log_message( LG.Database, f"سند {document_id} حذف شد", LogLevel.INFO )
-                return True
-            return False
+            result = self.db.query( Document ).filter_by( id=document_id ).delete()
+            self.db.commit()
+            if result:
+                log_message( LG.Database, f"🗑️ سند {document_id} حذف شد", LogLevel.INFO )
+            return result > 0
         except Exception as e:
             self.db.rollback()
-            log_message( LG.Database, f"خطا در حذف سند: {str(e)}", LogLevel.ERROR )
+            log_message( LG.Database, f"❌ خطا در حذف سند: {str(e)}", LogLevel.ERROR )
             return False
 
     # ==================== Chunk Operations ====================
@@ -105,63 +105,71 @@ class PostgresManager:
             self.db.commit()
             self.db.refresh( chunk )
             return chunk
-
         except Exception as e:
             self.db.rollback()
-            log_message( LG.Database, f"خطا در ایجاد chunk: {str(e)}", LogLevel.ERROR )
+            log_message( LG.Database, f"❌ خطا در ایجاد chunk: {str(e)}", LogLevel.ERROR )
             raise
 
-    def bulk_create_chunks( self, chunks_data: List[ dict ] ) -> bool:
-        """ایجاد دسته‌جمعی chunks"""
-        try:
-            chunks = [ Chunk( **data ) for data in chunks_data ]
-            self.db.bulk_save_objects( chunks )
-            self.db.commit()
-            log_message( LG.Database, f"{len(chunks)} chunk ایجاد شد", LogLevel.INFO )
-            return True
+    def get_chunk_content( self, chunk_id: str ) -> Optional[ str ]:
+        """
+        این متد حافظه و پهنای باند بسیار کمتری مصرف می‌کند چون کل آبجکت را لود نمی‌کند.
+        """
+        return self.db.query( Chunk.content ).filter_by( chunk_id=chunk_id ).scalar()
 
+    def get_chunks_content_bulk( self, chunk_ids: List[ str ] ) -> Dict[ str, str ]:
+        """دریافت محتوای چندین chunk به صورت یکجا"""
+        if not chunk_ids:
+            return {}
+
+        try:
+            # انتخاب فقط دو ستون مورد نیاز برای سرعت بیشتر
+            chunks = self.db.query( Chunk.chunk_id, Chunk.content ).filter( Chunk.chunk_id.in_( chunk_ids ) ).all()
+
+            # تبدیل لیست تاپل‌ها به دیکشنری
+            return { cid: content for cid, content in chunks }
+        except Exception as e:
+            log_message( LG.Database, f"❌ خطا در bulk get: {str(e)}", LogLevel.ERROR )
+            return {}
+
+    def bulk_create_chunks( self, chunks_data: List[ Dict[ str, Any ] ] ) -> bool:
+        try:
+            chunks_objects = [ Chunk( **data ) for data in chunks_data ]
+            self.db.add_all( chunks_objects )
+            self.db.commit()
+            log_message( LG.Database, f"✅ {len(chunks_objects)} chunk ایجاد شد", LogLevel.INFO )
+            return True
         except Exception as e:
             self.db.rollback()
-            log_message( LG.Database, f"خطا در ایجاد دسته‌جمعی chunks: {str(e)}", LogLevel.ERROR )
+            log_message( LG.Database, f"❌ خطا در bulk create: {str(e)}", LogLevel.ERROR )
             return False
 
     def get_chunk_by_id( self, chunk_id: str ) -> Optional[ Chunk ]:
         """دریافت chunk با chunk_id"""
-        return self.db.query( Chunk ).filter( Chunk.chunk_id == chunk_id ).first()
+        return self.db.query( Chunk ).filter_by( chunk_id=chunk_id ).first()
 
     def get_chunks_by_document( self, document_id: int ) -> List[ Chunk ]:
         """دریافت تمام chunks یک سند"""
-        return self.db.query( Chunk ).filter( Chunk.document_id == document_id ).order_by( Chunk.chunk_index ).all()
+        return self.db.query( Chunk ).filter_by( document_id=document_id ).order_by( Chunk.chunk_index ).all()
 
     def delete_chunks_by_document( self, document_id: int ) -> bool:
         """حذف تمام chunks یک سند"""
         try:
-            deleted = self.db.query( Chunk ).filter( Chunk.document_id == document_id ).delete()
+            count = self.db.query( Chunk ).filter_by( document_id=document_id ).delete()
             self.db.commit()
-            log_message( LG.Database, f"{deleted} chunk از سند {document_id} حذف شد", LogLevel.INFO )
+            log_message( LG.Database, f"🗑️ {count} chunk حذف شد", LogLevel.INFO )
             return True
         except Exception as e:
             self.db.rollback()
-            log_message( LG.Database, f"خطا در حذف chunks: {str(e)}", LogLevel.ERROR )
+            log_message( LG.Database, f"❌ خطا در حذف chunks: {str(e)}", LogLevel.ERROR )
             return False
 
-    def get_chunk_content( self, chunk_id: str ) -> Optional[ str ]:
-        """دریافت محتوای یک chunk"""
-        chunk = self.get_chunk_by_id( chunk_id )
-        return str( chunk.content ) if chunk else None
-
     def get_total_chunks_count( self ) -> int:
-        """تعداد کل chunks در دیتابیس"""
-        return self.db.query( Chunk ).count()
+        """تعداد کل chunks"""
+        return self.db.query( func.count( Chunk.id ) ).scalar()          # یا self.db.query(Chunk).count()
 
     def get_total_documents_count( self ) -> int:
-        """تعداد کل اسناد در دیتابیس"""
-        return self.db.query( Document ).count()
+        """تعداد کل اسناد"""
+        return self.db.query( func.count( Document.id ) ).scalar()
 
     def get_all_chunks( self ) -> List[ Chunk ]:
-        """دریافت تمام chunks از دیتابیس"""
-        try:
-            return self.db.query( Chunk ).all()
-        except Exception as e:
-            log_message( LG.Database, f"خطا در دریافت تمام chunks: {str(e)}", LogLevel.ERROR )
-            return []
+        return self.db.query( Chunk ).all()
