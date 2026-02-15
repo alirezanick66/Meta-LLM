@@ -80,10 +80,7 @@ class PromptBuilder:
         """بررسی سریع با Regex ترکیبی"""
         return bool( self.SYS_PATTERN_REGEX.search( query.strip() ) )
 
-    def build_prompt( self,
-                      query: str,
-                      chunks: List[ Dict[ str, Any ] ],
-                      include_metadata: bool = True ) -> PromptResult:
+    def build_prompt( self, query: str, chunks: List[ Dict[ str, Any ] ], include_metadata: bool = True ) -> PromptResult:
         try:
             is_sys = self.is_system_question( query )
 
