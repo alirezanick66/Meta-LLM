@@ -126,3 +126,150 @@
 		animation: pulse-ring 1.5s ease-out infinite;
 	}
 }
+/* ========================================
+   جایگزین کن با custom scrollbar قبلی در index.css
+   ======================================== */
+
+/* Custom Scrollbar سمت راست (RTL) */
+.custom-scrollbar {
+	direction: ltr; /* برای انتقال scrollbar به راست */
+}
+
+.custom-scrollbar > * {
+	direction: rtl; /* محتوا همچنان RTL */
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+	width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+	background: linear-gradient(to bottom, #ffffff, #f9fafb);
+	border-radius: 100px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+	background: linear-gradient(to bottom, #10a37f, #0d8c6a);
+	border-radius: 100px;
+	border: 2px solid #ffffff;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: linear-gradient(to bottom, #0d8c6a, #0a7558);
+}
+
+/* برای Firefox */
+.custom-scrollbar {
+	scrollbar-width: thin;
+	scrollbar-color: #10a37f #f9fafb;
+}
+/* ========================================
+   اضافه کن به index.css
+   افکت‌های مختلف Typing
+   ======================================== */
+
+/* 1. Wave Effect (موج) */
+@keyframes wave {
+	0% {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.animate-wave {
+	animation: wave 0.3s ease-out forwards;
+}
+
+/* 2. Slide In Right (لغزش از راست) */
+@keyframes slideInRight {
+	0% {
+		opacity: 0;
+		transform: translateX(20px);
+	}
+	100% {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+.animate-slideInRight {
+	animation: slideInRight 0.4s ease-out;
+}
+
+/* 3. Blur to Clear (از تار به واضح) */
+@keyframes unblur {
+	0% {
+		opacity: 0;
+		filter: blur(4px);
+	}
+	100% {
+		opacity: 1;
+		filter: blur(0);
+	}
+}
+
+.animate-unblur {
+	animation: unblur 0.4s ease-out forwards;
+}
+
+/* 4. Scale In (بزرگ شدن) */
+@keyframes scaleIn {
+	0% {
+		opacity: 0;
+		transform: scale(0.8);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+.animate-scaleIn {
+	animation: scaleIn 0.3s ease-out forwards;
+}
+
+/* 5. Flip In (چرخش) */
+@keyframes flipIn {
+	0% {
+		opacity: 0;
+		transform: rotateX(-90deg);
+	}
+	100% {
+		opacity: 1;
+		transform: rotateX(0);
+	}
+}
+
+.animate-flipIn {
+	animation: flipIn 0.4s ease-out forwards;
+	transform-origin: bottom;
+}
+
+/* 6. Glitch Effect (افکت گلیچ) */
+@keyframes glitch {
+	0% {
+		opacity: 0;
+		transform: translate(-2px, 2px);
+	}
+	25% {
+		transform: translate(2px, -2px);
+	}
+	50% {
+		transform: translate(-2px, -2px);
+	}
+	75% {
+		transform: translate(2px, 2px);
+	}
+	100% {
+		opacity: 1;
+		transform: translate(0, 0);
+	}
+}
+
+.animate-glitch {
+	animation: glitch 0.2s ease-out forwards;
+}

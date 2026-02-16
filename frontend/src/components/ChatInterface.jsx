@@ -6,7 +6,7 @@ import InputBox from "./InputBox"
 import { sendMessage } from "../services/api"
 
 /**
- * کامپوننت اصلی چت (با regenerate که edit می‌کنه)
+ * کامپوننت اصلی چت (نسخه نهایی با تمام قابلیت‌ها)
  */
 const ChatInterface = () => {
 	const [messages, setMessages] = useState([])
@@ -89,9 +89,9 @@ const ChatInterface = () => {
 
 	// Regenerate پاسخ (edit همون پیام)
 	const handleRegenerate = async (messageIndex) => {
-		if (messageIndex < 1) return // باید حداقل یه سوال قبلش باشه
+		if (messageIndex < 1) return
 
-		// پیدا کردن سوال مربوط به این پاسخ
+		// پیدا کردن سوال مربوط
 		let userMessageIndex = -1
 		for (let i = messageIndex - 1; i >= 0; i--) {
 			if (messages[i].role === "user") {
@@ -103,15 +103,13 @@ const ChatInterface = () => {
 		if (userMessageIndex === -1) return
 
 		const userMessage = messages[userMessageIndex]
-
-		// نشون دادن loading
 		setIsLoading(true)
 
 		try {
 			const response = await sendMessage(userMessage.content)
 
 			if (response.success) {
-				// ✅ آپدیت همون پیام (نه append)
+				// ✅ آپدیت همون پیام
 				setMessages((prev) => {
 					const newMessages = [...prev]
 					newMessages[messageIndex] = {
@@ -129,7 +127,6 @@ const ChatInterface = () => {
 		} catch (err) {
 			console.error("Error regenerating:", err)
 
-			// آپدیت با پیام خطا
 			setMessages((prev) => {
 				const newMessages = [...prev]
 				newMessages[messageIndex] = {
@@ -180,10 +177,10 @@ const ChatInterface = () => {
 				</div>
 			</header>
 
-			{/* Messages Area */}
+			{/* Messages Area - با custom-scrollbar */}
 			<div
 				ref={messagesContainerRef}
-				className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin bg-white"
+				className="flex-1 overflow-y-auto px-4 py-6 custom-scrollbar bg-white"
 			>
 				<div className="max-w-4xl mx-auto">
 					{messages.length === 0 ? (
@@ -267,11 +264,16 @@ const ChatInterface = () => {
 								<Message
 									key={idx}
 									message={msg}
-									// ✅ فقط برای پیام‌های ربات onRegenerate رو بفرست
 									onRegenerate={
 										msg.role === "assistant"
 											? () => handleRegenerate(idx)
 											: null
+									}
+									// ✅ فقط برای آخرین پیام ربات typing effect فعاله
+									enableTyping={
+										msg.role === "assistant" &&
+										idx === messages.length - 1 &&
+										!isLoading
 									}
 								/>
 							))}

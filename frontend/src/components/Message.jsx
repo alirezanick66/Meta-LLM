@@ -1,13 +1,24 @@
 import React from "react"
 import MessageActions from "./MessageActions"
+import { useTypingEffect } from "../hooks/useTypingEffect"
 
 /**
- * کامپوننت نمایش پیام (با actions)
+ * کامپوننت نمایش پیام (با typing effect)
  * @param {Object} message - شیء پیام
- * @param {Function} onRegenerate - تابع تولید مجدد پاسخ
+ * @param {Function} onRegenerate - تابع تولید مجدد
+ * @param {boolean} enableTyping - فعال بودن افکت تایپ
  */
-const Message = ({ message, onRegenerate }) => {
+const Message = ({ message, onRegenerate, enableTyping = false }) => {
 	const isUser = message.role === "user"
+
+	// فقط برای پیام‌های ربات typing effect فعال میشه
+	const { displayedText, isTyping } = useTypingEffect(
+		message.content,
+		20,
+		enableTyping && !isUser,
+	)
+
+	const content = enableTyping && !isUser ? displayedText : message.content
 
 	return (
 		<div className="w-full py-2 animate-fadeIn group">
@@ -19,15 +30,23 @@ const Message = ({ message, onRegenerate }) => {
 						w-fit max-w-[85%]
 						${isUser ? "bg-[#fff6d9] text-gray-800" : "text-gray-800"}`}
 				>
-					{message.content}
+					{content}
+					{/* Cursor animation وقتی در حال تایپه */}
+					{isTyping && (
+						<span className="inline-block w-0.5 h-4 bg-gray-800 ml-1 animate-pulse">
+							▌
+						</span>
+					)}
 				</div>
 
-				{/* Actions - فقط با hover نمایش داده میشه */}
-				<MessageActions
-					content={message.content}
-					onRegenerate={!isUser ? onRegenerate : null}
-					isUser={isUser}
-				/>
+				{/* Actions - فقط وقتی typing تموم شده */}
+				{!isTyping && (
+					<MessageActions
+						content={message.content}
+						onRegenerate={!isUser ? onRegenerate : null}
+						isUser={isUser}
+					/>
+				)}
 			</div>
 		</div>
 	)
