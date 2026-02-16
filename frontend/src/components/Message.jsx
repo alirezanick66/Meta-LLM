@@ -1,58 +1,103 @@
-import React, { useMemo } from "react"
+import React, { useMemo, useState, useRef, useEffect } from "react"
 import MessageActions from "./MessageActions"
 import { useTypingEffect } from "../hooks/useTypingEffect"
 
 /**
- * کامپوننت نمایش پیام (نسخه بهبود یافته)
+ * کامپوننت نمایش پیام (با ویرایش inline شبیه ChatGPT - اصلاح شده)
  *
- * بهبودها:
- * - useMemo برای جلوگیری از re-render غیرضروری
- * - مدیریت بهتر حالت typing
- *
- * @param {Object} message - شیء پیام
- * @param {Function} onRegenerate - تابع تولید مجدد
- * @param {boolean} isRegenerating - آیا در حال regenerate است؟
- * @param {boolean} enableTyping - فعال بودن افکت تایپ
- * @param {string} typingEffect - نوع افکت: 'slideIn' | 'default'
+ * اصلاحات:
+ * - اسکرول بار سمت راست (با استفاده از dir="ltr" در textarea)
+ * - رنگ‌بندی دقیق دکمه‌ها و باکس متن طبق استایل ChatGPT
  */
 const Message = ({
 	message,
 	onRegenerate,
+	onEditSubmit,
 	isRegenerating = false,
 	enableTyping = false,
 	typingEffect = "slideIn",
 }) => {
 	const isUser = message.role === "user"
 
-	// Typing effect (فقط برای assistant و فقط وقتی enabled باشه)
+	// Edit mode
+	const [isEditing, setIsEditing] = useState(false)
+	const [editedContent, setEditedContent] = useState(message.content)
+	const textareaRef = useRef(null)
+
+	// Typing effect
 	const { displayedText, isTyping } = useTypingEffect(
 		message.content,
-		20, // سرعت
+		20,
 		enableTyping && !isUser,
 	)
 
-	// انتخاب محتوای نمایشی (با useMemo برای بهینه‌سازی)
 	const content = useMemo(() => {
 		return enableTyping && !isUser ? displayedText : message.content
 	}, [enableTyping, isUser, displayedText, message.content])
 
-	// Render محتوا با افکت
-	const renderContent = useMemo(() => {
-		if (!enableTyping || isUser) {
-			return content
+	// فوکوس روی textarea هنگام ویرایش
+	useEffect(() => {
+		if (isEditing && textareaRef.current) {
+			textareaRef.current.focus()
+			textareaRef.current.setSelectionRange(
+				editedContent.length,
+				editedContent.length,
+			)
 		}
+	}, [isEditing, editedContent.length])
+
+	// Auto resize
+	useEffect(() => {
+		if (isEditing && textareaRef.current) {
+			textareaRef.current.style.height = "auto"
+			textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+		}
+	}, [isEditing, editedContent])
+
+	const handleEditStart = () => {
+		setIsEditing(true)
+		setEditedContent(message.content)
+	}
+
+	const handleEditCancel = () => {
+		setIsEditing(false)
+		setEditedContent(message.content)
+	}
+
+	const handleEditSave = () => {
+		const trimmed = editedContent.trim()
+		if (!trimmed || trimmed === message.content) {
+			handleEditCancel()
+			return
+		}
+
+		onEditSubmit?.(message.id, trimmed)
+		setIsEditing(false)
+	}
+
+	const handleKeyDown = (e) => {
+		if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+			e.preventDefault()
+			handleEditSave()
+		}
+
+		if (e.key === "Escape") {
+			e.preventDefault()
+			handleEditCancel()
+		}
+	}
+
+	const renderContent = useMemo(() => {
+		if (!enableTyping || isUser) return content
 
 		switch (typingEffect) {
 			case "slideIn":
-				// کل متن لغزش از راست
 				return (
 					<span className="inline-block animate-slideInRight">
 						{content}
 					</span>
 				)
-
 			default:
-				// حالت عادی (typewriter)
 				return content
 		}
 	}, [enableTyping, isUser, content, typingEffect])
@@ -60,35 +105,81 @@ const Message = ({
 	return (
 		<div className="w-full py-2 animate-fadeIn group">
 			<div className="max-w-3xl ml-auto mr-4 px-4 flex flex-col items-start">
-				{/* متن پیام */}
-				<div
-					className={`text-sm md:text-base leading-7 whitespace-pre-wrap break-words 
-						transition-all duration-300 px-4 py-3 rounded-2xl 
-						w-fit max-w-[85%]
-						${isUser ? "bg-[#fff6d9] text-gray-800" : "text-gray-800"}`}
-				>
-					{renderContent}
+				{isEditing ? (
+					<div className="w-full max-w-[85%]">
+						<textarea
+							ref={textareaRef}
+							value={editedContent}
+							onChange={(e) => setEditedContent(e.target.value)}
+							onKeyDown={handleKeyDown}
+							rows={1}
+							style={{ minHeight: "52px" }}
+							className="w-full text-sm md:text-base leading-7 px-4 py-3 rounded-2xl resize-none text-right
+                            bg-gray-100 text-gray-900 border border-transparent
+                            focus:outline-none focus:shadow-md focus:ring-0
+                            transition-all duration-150"
+						/>
 
-					{/* Cursor animation (فقط برای حالت default) */}
-					{isTyping && typingEffect === "default" && (
-						<span className="inline-block w-0.5 h-4 bg-gray-800 ml-1 animate-pulse">
-							▌
-						</span>
-					)}
-				</div>
+						<div className="flex items-center gap-3 mt-3">
+							{/* دکمه ذخیره - مشکی */}
+							<button
+								onClick={handleEditSave}
+								className="px-4 py-2 bg-black hover:bg-gray-800 text-white text-sm rounded-full transition-colors duration-150 font-medium"
+							>
+								ارسال
+							</button>
 
-				{/* Actions (فقط وقتی typing تموم شده) */}
-				{!isTyping && (
-					<MessageActions
-						content={message.content}
-						onRegenerate={!isUser ? onRegenerate : null}
-						isUser={isUser}
-						isRegenerating={isRegenerating}
-					/>
+							{/* دکمه لغو - سفید */}
+							<button
+								onClick={handleEditCancel}
+								className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-600 text-sm rounded-full border border-gray-200 transition-colors duration-150 font-medium"
+							>
+								لغو
+							</button>
+						</div>
+
+						<p className="text-[11px] text-gray-400 mt-2">
+							<kbd className="px-1.5 py-0.5 bg-gray-100 rounded border border-gray-200">
+								shift + Enter
+							</kbd>
+							{" برای خط جدید • "}
+							<kbd className="px-1.5 py-0.5 bg-gray-100 rounded border border-gray-200">
+								ESC
+							</kbd>
+							{" برای بستن"}
+						</p>
+					</div>
+				) : (
+					<>
+						<div
+							className={`text-sm md:text-base leading-7 whitespace-pre-wrap break-words px-4 py-3 rounded-2xl w-fit max-w-[85%]
+                            ${isUser ? "bg-[#fff6d9] text-gray-900" : "text-gray-900"}`}
+						>
+							{renderContent}
+
+							{isTyping && typingEffect === "default" && (
+								<span className="inline-block w-0.5 h-4 bg-gray-900 ml-1 animate-pulse">
+									▌
+								</span>
+							)}
+						</div>
+
+						{!isTyping && (
+							<div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+								<MessageActions
+									content={message.content}
+									onRegenerate={!isUser ? onRegenerate : null}
+									onEdit={isUser ? handleEditStart : null}
+									isUser={isUser}
+									isRegenerating={isRegenerating}
+								/>
+							</div>
+						)}
+					</>
 				)}
 			</div>
 		</div>
 	)
 }
 
-export default React.memo(Message) // ✅ Memoization برای جلوگیری از re-render
+export default React.memo(Message)

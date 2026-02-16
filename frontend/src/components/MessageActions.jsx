@@ -1,15 +1,17 @@
 import React, { useState } from "react"
 
 /**
- * دکمه‌های عملیات پیام (رفع مشکل نمایش تولتیپ)
+ * دکمه‌های عملیات پیام (با قابلیت ویرایش)
  *
- * اصلاحیه:
- * - جابجایی ترتیب دکمه و تولتیپ در کد (دکمه اول بیاید)
- * - الان تولتیپ با هاور روی دکمه به درستی نمایش داده می‌شود
+ * ویژگی‌ها:
+ * - کپی متن
+ * - تولید مجدد (برای پیام‌های ربات)
+ * - ویرایش پیام (برای پیام‌های کاربر) ✏️
  */
 const MessageActions = ({
 	content,
 	onRegenerate,
+	onEdit, // ✨ تابع جدید برای ویرایش
 	isUser,
 	isRegenerating = false,
 }) => {
@@ -99,7 +101,51 @@ const MessageActions = ({
 				</div>
 			</div>
 
-			{/* --- دکمه تولید مجدد --- */}
+			{/* --- دکمه ویرایش (فقط برای پیام‌های کاربر) ✏️ --- */}
+			{isUser && onEdit && (
+				<div className="relative flex items-center">
+					{/* 1. دکمه (Peer) */}
+					<button
+						onClick={onEdit}
+						className="peer w-8 h-8 rounded-full flex items-center justify-center
+                            bg-transparent shadow-none
+                            text-gray-400 hover:text-black hover:bg-gray-200
+                            transition-all duration-200 z-10 relative"
+						aria-label="ویرایش پیام"
+					>
+						{/* ایکون مداد ساده - دقیقاً مثل ChatGPT */}
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						>
+							<path d="M12 20h9"></path>
+							<path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+						</svg>
+					</button>
+
+					{/* 2. تولتیپ (Target) */}
+					<div
+						className="
+                        absolute top-full mt-2 left-1/2 -translate-x-1/2 
+                        bg-black text-white text-xs px-3 py-1.5 rounded-full 
+                        whitespace-nowrap opacity-0 peer-hover:opacity-100 
+                        transition-opacity duration-200 z-50 pointer-events-none
+                    "
+					>
+						ویرایش
+						{/* فلش رو به بالا */}
+						<div className="absolute bottom-full left-1/2 -translate-x-1/2 -mb-0.5 border-4 border-transparent border-b-black"></div>
+					</div>
+				</div>
+			)}
+
+			{/* --- دکمه تولید مجدد (فقط برای پیام‌های ربات) --- */}
 			{!isUser && onRegenerate && (
 				<div className="relative flex items-center">
 					{/* 1. دکمه (Peer) */}

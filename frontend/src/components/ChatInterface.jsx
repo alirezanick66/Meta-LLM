@@ -6,13 +6,9 @@ import InputBox from "./InputBox"
 import { sendMessage } from "../services/api"
 
 /**
- * کامپوننت اصلی چت (نسخه بهبود یافته)
+ * کامپوننت اصلی چت (نسخه اصلاح شده)
  *
- * بهبودها:
- * - useCallback برای handlers (جلوگیری از re-render غیرضروری)
- * - cleanup برای prevent memory leak
- * - unique message IDs (به جای index)
- * - AbortController برای cancel کردن requests
+ * اصلاحیه: جابجایی handleSend و handleEditSubmit برای رفع خطای ReferenceError
  */
 const ChatInterface = () => {
 	const [messages, setMessages] = useState([])
@@ -22,17 +18,14 @@ const ChatInterface = () => {
 
 	const messagesEndRef = useRef(null)
 	const messagesContainerRef = useRef(null)
-	const isMountedRef = useRef(true) // برای prevent state update روی unmounted component
-	const abortControllerRef = useRef(null) // برای cancel کردن requests
+	const isMountedRef = useRef(true)
+	const abortControllerRef = useRef(null)
 
 	// Cleanup on unmount
 	useEffect(() => {
-		// ✅ Set to true on mount
 		isMountedRef.current = true
-
 		return () => {
 			isMountedRef.current = false
-			// Cancel any pending requests
 			if (abortControllerRef.current) {
 				abortControllerRef.current.abort()
 			}
@@ -71,6 +64,7 @@ const ChatInterface = () => {
 		return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 	}, [])
 
+	// ⚠️ مهم: این تابع باید قبل از handleEditSubmit تعریف شود
 	// ارسال پیام (با useCallback)
 	const handleSend = useCallback(
 		async (content) => {
@@ -88,7 +82,6 @@ const ChatInterface = () => {
 			setIsLoading(true)
 			setError(null)
 
-			// ساخت AbortController جدید
 			abortControllerRef.current = new AbortController()
 
 			try {
@@ -101,8 +94,6 @@ const ChatInterface = () => {
 
 				console.log("✅ API Response received:", response)
 
-				// چک کنیم که component هنوز mount هست
-				console.log("🔍 isMountedRef.current:", isMountedRef.current)
 				if (!isMountedRef.current) {
 					console.warn(
 						"⚠️ Component unmounted, skipping state update",
@@ -128,13 +119,10 @@ const ChatInterface = () => {
 			} catch (err) {
 				console.error("❌ Error in handleSend:", err)
 
-				// اگه request cancel شده، هیچ کاری نکن
 				if (err.name === "AbortError" || err.name === "CanceledError") {
 					console.log("🚫 Request was canceled")
 					return
 				}
-
-				console.error("Error sending message:", err)
 
 				if (!isMountedRef.current) return
 
@@ -149,12 +137,7 @@ const ChatInterface = () => {
 
 				setMessages((prev) => [...prev, errorMessage])
 			} finally {
-				console.log(
-					"🏁 Finally block - isMounted:",
-					isMountedRef.current,
-				)
 				if (isMountedRef.current) {
-					console.log("✅ Setting isLoading to false")
 					setIsLoading(false)
 				}
 			}
@@ -162,16 +145,35 @@ const ChatInterface = () => {
 		[generateMessageId],
 	)
 
+	// ✨ Submit کردن پیام ویرایش شده (حالا می‌تواند handleSend را ببیند چون بالا تعریف شده)
+	const handleEditSubmit = useCallback(
+		(messageId, newContent) => {
+			console.log("✏️ handleEditSubmit called:", messageId, newContent)
+
+			const messageIndex = messages.findIndex(
+				(msg) => msg.id === messageId,
+			)
+			if (messageIndex === -1) return
+
+			// حذف پیام کاربر و تمام پیام‌های بعدش
+			setMessages((prev) => prev.slice(0, messageIndex))
+
+			// ارسال پیام جدید
+			handleSend(newContent)
+
+			console.log("📝 Edited message sent:", newContent)
+		},
+		[messages, handleSend],
+	)
+
 	// Regenerate پاسخ (با useCallback)
 	const handleRegenerate = useCallback(
 		async (messageId) => {
-			// پیدا کردن message مورد نظر
 			const messageIndex = messages.findIndex(
 				(msg) => msg.id === messageId,
 			)
 			if (messageIndex < 1) return
 
-			// پیدا کردن سوال مربوط
 			let userMessageIndex = -1
 			for (let i = messageIndex - 1; i >= 0; i--) {
 				if (messages[i].role === "user") {
@@ -185,7 +187,6 @@ const ChatInterface = () => {
 			const userMessage = messages[userMessageIndex]
 			setIsLoading(true)
 
-			// ساخت AbortController جدید
 			abortControllerRef.current = new AbortController()
 
 			try {
@@ -198,7 +199,6 @@ const ChatInterface = () => {
 				if (!isMountedRef.current) return
 
 				if (response.success) {
-					// آپدیت همون پیام
 					setMessages((prev) => {
 						const newMessages = [...prev]
 						newMessages[messageIndex] = {
@@ -214,7 +214,6 @@ const ChatInterface = () => {
 					throw new Error(response.error || "خطای نامشخص")
 				}
 			} catch (err) {
-				// اگه request cancel شده، هیچ کاری نکن
 				if (err.name === "AbortError" || err.name === "CanceledError") {
 					console.log("Request was canceled")
 					return
@@ -243,7 +242,7 @@ const ChatInterface = () => {
 
 	return (
 		<div className="flex flex-col h-screen bg-white">
-			{/* Messages Area - با custom-scrollbar */}
+			{/* Messages Area */}
 			<div
 				ref={messagesContainerRef}
 				className="flex-1 overflow-y-auto px-4 py-6 custom-scrollbar bg-white"
@@ -256,8 +255,8 @@ const ChatInterface = () => {
 								<div className="absolute inset-0 bg-green-400 rounded-full blur-2xl opacity-20 animate-pulse"></div>
 								<div
 									className="relative w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 
-									rounded-full flex items-center justify-center shadow-xl 
-									transform hover:scale-110 transition-transform duration-300"
+                                    rounded-full flex items-center justify-center shadow-xl 
+                                    transform hover:scale-110 transition-transform duration-300"
 								>
 									<span className="text-white text-5xl font-bold">
 										م
@@ -268,7 +267,7 @@ const ChatInterface = () => {
 							<h2 className="text-3xl font-bold mb-3">
 								<span
 									className="bg-gradient-to-l from-gray-800 via-gray-700 to-gray-800 
-									bg-clip-text text-transparent"
+                                    bg-clip-text text-transparent"
 								>
 									سلام! من متا هستم
 								</span>
@@ -303,14 +302,14 @@ const ChatInterface = () => {
 												handleSend(example.text)
 											}
 											className="group relative overflow-hidden bg-white border-2 border-gray-200 
-												hover:border-green-400 hover:bg-green-50 p-4 rounded-2xl 
-												transition-all duration-300 shadow-sm hover:shadow-xl
-												transform hover:-translate-y-1 active:scale-95"
+                                                hover:border-green-400 hover:bg-green-50 p-4 rounded-2xl 
+                                                transition-all duration-300 shadow-sm hover:shadow-xl
+                                                transform hover:-translate-y-1 active:scale-95"
 										>
 											<span
 												className="absolute inset-0 bg-gradient-to-r from-transparent via-white 
-												to-transparent opacity-0 group-hover:opacity-20 transform translate-x-[-100%] 
-												group-hover:translate-x-[100%] transition-transform duration-700"
+                                                to-transparent opacity-0 group-hover:opacity-20 transform translate-x-[-100%] 
+                                                group-hover:translate-x-[100%] transition-transform duration-700"
 											></span>
 
 											<div className="relative">
@@ -330,11 +329,16 @@ const ChatInterface = () => {
 						<>
 							{messages.map((msg) => (
 								<Message
-									key={msg.id} // ✅ استفاده از unique ID
+									key={msg.id}
 									message={msg}
 									onRegenerate={
 										msg.role === "assistant"
 											? () => handleRegenerate(msg.id)
+											: null
+									}
+									onEditSubmit={
+										msg.role === "user"
+											? handleEditSubmit
 											: null
 									}
 									isRegenerating={
@@ -351,7 +355,6 @@ const ChatInterface = () => {
 								/>
 							))}
 
-							{/* Skeleton Loading */}
 							{isLoading && <SkeletonMessage />}
 						</>
 					)}
@@ -360,13 +363,11 @@ const ChatInterface = () => {
 				</div>
 			</div>
 
-			{/* Scroll to Bottom Button */}
 			<ScrollToBottom
 				show={showScrollButton}
 				onClick={() => scrollToBottom()}
 			/>
 
-			{/* Input Box */}
 			<InputBox onSend={handleSend} isLoading={isLoading} />
 		</div>
 	)
