@@ -1,33 +1,43 @@
-import React from "react"
+import React, { useMemo } from "react"
 import MessageActions from "./MessageActions"
 import { useTypingEffect } from "../hooks/useTypingEffect"
 
 /**
- * کامپوننت نمایش پیام (با افکت‌های مختلف typing)
+ * کامپوننت نمایش پیام (نسخه بهبود یافته)
+ *
+ * بهبودها:
+ * - useMemo برای جلوگیری از re-render غیرضروری
+ * - مدیریت بهتر حالت typing
+ *
  * @param {Object} message - شیء پیام
  * @param {Function} onRegenerate - تابع تولید مجدد
+ * @param {boolean} isRegenerating - آیا در حال regenerate است؟
  * @param {boolean} enableTyping - فعال بودن افکت تایپ
- * @param {string} typingEffect - نوع افکت: 'default' | 'wave' | 'slideIn' | 'blur' | 'scale' | 'flip' | 'glitch'
+ * @param {string} typingEffect - نوع افکت: 'slideIn' | 'default'
  */
 const Message = ({
 	message,
 	onRegenerate,
+	isRegenerating = false,
 	enableTyping = false,
-	typingEffect = "slideIn", // ← نوع افکت
+	typingEffect = "slideIn",
 }) => {
 	const isUser = message.role === "user"
 
-	// Typing effect
+	// Typing effect (فقط برای assistant و فقط وقتی enabled باشه)
 	const { displayedText, isTyping } = useTypingEffect(
 		message.content,
 		20, // سرعت
 		enableTyping && !isUser,
 	)
 
-	const content = enableTyping && !isUser ? displayedText : message.content
+	// انتخاب محتوای نمایشی (با useMemo برای بهینه‌سازی)
+	const content = useMemo(() => {
+		return enableTyping && !isUser ? displayedText : message.content
+	}, [enableTyping, isUser, displayedText, message.content])
 
-	// انتخاب افکت
-	const renderContent = () => {
+	// Render محتوا با افکت
+	const renderContent = useMemo(() => {
 		if (!enableTyping || isUser) {
 			return content
 		}
@@ -45,7 +55,7 @@ const Message = ({
 				// حالت عادی (typewriter)
 				return content
 		}
-	}
+	}, [enableTyping, isUser, content, typingEffect])
 
 	return (
 		<div className="w-full py-2 animate-fadeIn group">
@@ -57,7 +67,7 @@ const Message = ({
 						w-fit max-w-[85%]
 						${isUser ? "bg-[#fff6d9] text-gray-800" : "text-gray-800"}`}
 				>
-					{renderContent()}
+					{renderContent}
 
 					{/* Cursor animation (فقط برای حالت default) */}
 					{isTyping && typingEffect === "default" && (
@@ -67,12 +77,13 @@ const Message = ({
 					)}
 				</div>
 
-				{/* Actions */}
+				{/* Actions (فقط وقتی typing تموم شده) */}
 				{!isTyping && (
 					<MessageActions
 						content={message.content}
 						onRegenerate={!isUser ? onRegenerate : null}
 						isUser={isUser}
+						isRegenerating={isRegenerating}
 					/>
 				)}
 			</div>
@@ -80,4 +91,4 @@ const Message = ({
 	)
 }
 
-export default Message
+export default React.memo(Message) // ✅ Memoization برای جلوگیری از re-render

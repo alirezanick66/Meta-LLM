@@ -47,20 +47,36 @@ if (import.meta.env.DEV) {
 }
 
 /**
- * ارسال سوال به API
+ * ارسال سوال به API (با پشتیبانی از AbortController)
+ *
  * @param {string} query - سوال کاربر
  * @param {number} temperature - میزان خلاقیت (0-2)
+ * @param {AbortSignal} signal - برای cancel کردن request
  * @returns {Promise} - پاسخ API
  */
-export const sendMessage = async (query, temperature = 0.3) => {
+export const sendMessage = async (query, temperature = 0.3, signal = null) => {
 	try {
-		const response = await api.post("/chat", {
-			query,
-			temperature,
-		})
+		const config = {
+			signal, // ✅ اضافه کردن signal برای cancel
+		}
+
+		const response = await api.post(
+			"/chat",
+			{
+				query,
+				temperature,
+			},
+			signal ? config : {}, // ✅ فقط اگه signal داریم config رو pass کن
+		)
 		return response.data
 	} catch (error) {
-		// مدیریت خطاها
+		// چک کردن اینکه request cancel شده یا نه
+		if (axios.isCancel(error)) {
+			console.log("Request canceled:", error.message)
+			throw { message: "Request canceled", name: "CanceledError" }
+		}
+
+		// مدیریت خطاهای دیگه
 		if (error.response) {
 			// سرور پاسخ داده ولی با error
 			throw {

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useCallback } from "react"
 import Message from "./Message"
 import SkeletonMessage from "./SkeletonMessage"
 import ScrollToBottom from "./ScrollToBottom"
@@ -6,20 +6,43 @@ import InputBox from "./InputBox"
 import { sendMessage } from "../services/api"
 
 /**
- * کامپوننت اصلی چت (نسخه نهایی با تمام قابلیت‌ها)
+ * کامپوننت اصلی چت (نسخه بهبود یافته)
+ *
+ * بهبودها:
+ * - useCallback برای handlers (جلوگیری از re-render غیرضروری)
+ * - cleanup برای prevent memory leak
+ * - unique message IDs (به جای index)
+ * - AbortController برای cancel کردن requests
  */
 const ChatInterface = () => {
 	const [messages, setMessages] = useState([])
 	const [isLoading, setIsLoading] = useState(false)
 	const [error, setError] = useState(null)
 	const [showScrollButton, setShowScrollButton] = useState(false)
+
 	const messagesEndRef = useRef(null)
 	const messagesContainerRef = useRef(null)
+	const isMountedRef = useRef(true) // برای prevent state update روی unmounted component
+	const abortControllerRef = useRef(null) // برای cancel کردن requests
+
+	// Cleanup on unmount
+	useEffect(() => {
+		// ✅ Set to true on mount
+		isMountedRef.current = true
+
+		return () => {
+			isMountedRef.current = false
+			// Cancel any pending requests
+			if (abortControllerRef.current) {
+				abortControllerRef.current.abort()
+			}
+		}
+	}, [])
 
 	// Auto-scroll به آخرین پیام
-	const scrollToBottom = (behavior = "smooth") => {
+	const scrollToBottom = useCallback((behavior = "smooth") => {
 		messagesEndRef.current?.scrollIntoView({ behavior })
-	}
+	}, [])
 
 	// Scroll event برای نمایش دکمه scroll to bottom
 	useEffect(() => {
@@ -41,142 +64,185 @@ const ChatInterface = () => {
 		if (messages.length > 0) {
 			scrollToBottom()
 		}
-	}, [messages])
+	}, [messages.length, scrollToBottom])
 
-	// ارسال پیام
-	const handleSend = async (content) => {
-		const userMessage = {
-			role: "user",
-			content,
-			timestamp: new Date(),
-		}
+	// تولید unique ID برای messages
+	const generateMessageId = useCallback(() => {
+		return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+	}, [])
 
-		setMessages((prev) => [...prev, userMessage])
-		setIsLoading(true)
-		setError(null)
+	// ارسال پیام (با useCallback)
+	const handleSend = useCallback(
+		async (content) => {
+			console.log("🚀 handleSend called with:", content)
 
-		try {
-			const response = await sendMessage(content)
-
-			if (response.success) {
-				const botMessage = {
-					role: "assistant",
-					content: response.answer,
-					timestamp: new Date(response.timestamp),
-					sources: response.sources,
-					metadata: response.metadata,
-				}
-
-				setMessages((prev) => [...prev, botMessage])
-			} else {
-				throw new Error(response.error || "خطای نامشخص")
-			}
-		} catch (err) {
-			console.error("Error sending message:", err)
-			setError(err.message || "خطا در ارسال پیام")
-
-			const errorMessage = {
-				role: "assistant",
-				content: `❌ ${err.message || "متأسفانه مشکلی پیش آمده. لطفاً دوباره تلاش کنید."}`,
+			const userMessage = {
+				id: generateMessageId(),
+				role: "user",
+				content,
 				timestamp: new Date(),
 			}
 
-			setMessages((prev) => [...prev, errorMessage])
-		} finally {
-			setIsLoading(false)
-		}
-	}
+			console.log("📝 Setting user message:", userMessage)
+			setMessages((prev) => [...prev, userMessage])
+			setIsLoading(true)
+			setError(null)
 
-	// Regenerate پاسخ (edit همون پیام)
-	const handleRegenerate = async (messageIndex) => {
-		if (messageIndex < 1) return
+			// ساخت AbortController جدید
+			abortControllerRef.current = new AbortController()
 
-		// پیدا کردن سوال مربوط
-		let userMessageIndex = -1
-		for (let i = messageIndex - 1; i >= 0; i--) {
-			if (messages[i].role === "user") {
-				userMessageIndex = i
-				break
-			}
-		}
+			try {
+				console.log("📡 Calling sendMessage API...")
+				const response = await sendMessage(
+					content,
+					0.3,
+					abortControllerRef.current.signal,
+				)
 
-		if (userMessageIndex === -1) return
+				console.log("✅ API Response received:", response)
 
-		const userMessage = messages[userMessageIndex]
-		setIsLoading(true)
+				// چک کنیم که component هنوز mount هست
+				console.log("🔍 isMountedRef.current:", isMountedRef.current)
+				if (!isMountedRef.current) {
+					console.warn(
+						"⚠️ Component unmounted, skipping state update",
+					)
+					return
+				}
 
-		try {
-			const response = await sendMessage(userMessage.content)
-
-			if (response.success) {
-				// ✅ آپدیت همون پیام
-				setMessages((prev) => {
-					const newMessages = [...prev]
-					newMessages[messageIndex] = {
-						...newMessages[messageIndex],
+				if (response.success) {
+					const botMessage = {
+						id: generateMessageId(),
+						role: "assistant",
 						content: response.answer,
 						timestamp: new Date(response.timestamp),
 						sources: response.sources,
 						metadata: response.metadata,
 					}
+
+					console.log("🤖 Setting bot message:", botMessage)
+					setMessages((prev) => [...prev, botMessage])
+				} else {
+					throw new Error(response.error || "خطای نامشخص")
+				}
+			} catch (err) {
+				console.error("❌ Error in handleSend:", err)
+
+				// اگه request cancel شده، هیچ کاری نکن
+				if (err.name === "AbortError" || err.name === "CanceledError") {
+					console.log("🚫 Request was canceled")
+					return
+				}
+
+				console.error("Error sending message:", err)
+
+				if (!isMountedRef.current) return
+
+				setError(err.message || "خطا در ارسال پیام")
+
+				const errorMessage = {
+					id: generateMessageId(),
+					role: "assistant",
+					content: `❌ ${err.message || "متأسفانه مشکلی پیش آمده. لطفاً دوباره تلاش کنید."}`,
+					timestamp: new Date(),
+				}
+
+				setMessages((prev) => [...prev, errorMessage])
+			} finally {
+				console.log(
+					"🏁 Finally block - isMounted:",
+					isMountedRef.current,
+				)
+				if (isMountedRef.current) {
+					console.log("✅ Setting isLoading to false")
+					setIsLoading(false)
+				}
+			}
+		},
+		[generateMessageId],
+	)
+
+	// Regenerate پاسخ (با useCallback)
+	const handleRegenerate = useCallback(
+		async (messageId) => {
+			// پیدا کردن message مورد نظر
+			const messageIndex = messages.findIndex(
+				(msg) => msg.id === messageId,
+			)
+			if (messageIndex < 1) return
+
+			// پیدا کردن سوال مربوط
+			let userMessageIndex = -1
+			for (let i = messageIndex - 1; i >= 0; i--) {
+				if (messages[i].role === "user") {
+					userMessageIndex = i
+					break
+				}
+			}
+
+			if (userMessageIndex === -1) return
+
+			const userMessage = messages[userMessageIndex]
+			setIsLoading(true)
+
+			// ساخت AbortController جدید
+			abortControllerRef.current = new AbortController()
+
+			try {
+				const response = await sendMessage(
+					userMessage.content,
+					0.3,
+					abortControllerRef.current.signal,
+				)
+
+				if (!isMountedRef.current) return
+
+				if (response.success) {
+					// آپدیت همون پیام
+					setMessages((prev) => {
+						const newMessages = [...prev]
+						newMessages[messageIndex] = {
+							...newMessages[messageIndex],
+							content: response.answer,
+							timestamp: new Date(response.timestamp),
+							sources: response.sources,
+							metadata: response.metadata,
+						}
+						return newMessages
+					})
+				} else {
+					throw new Error(response.error || "خطای نامشخص")
+				}
+			} catch (err) {
+				// اگه request cancel شده، هیچ کاری نکن
+				if (err.name === "AbortError" || err.name === "CanceledError") {
+					console.log("Request was canceled")
+					return
+				}
+
+				console.error("Error regenerating:", err)
+
+				if (!isMountedRef.current) return
+
+				setMessages((prev) => {
+					const newMessages = [...prev]
+					newMessages[messageIndex] = {
+						...newMessages[messageIndex],
+						content: `❌ ${err.message || "خطا در تولید مجدد"}`,
+					}
 					return newMessages
 				})
-			} else {
-				throw new Error(response.error || "خطای نامشخص")
-			}
-		} catch (err) {
-			console.error("Error regenerating:", err)
-
-			setMessages((prev) => {
-				const newMessages = [...prev]
-				newMessages[messageIndex] = {
-					...newMessages[messageIndex],
-					content: `❌ ${err.message || "خطا در تولید مجدد"}`,
+			} finally {
+				if (isMountedRef.current) {
+					setIsLoading(false)
 				}
-				return newMessages
-			})
-		} finally {
-			setIsLoading(false)
-		}
-	}
+			}
+		},
+		[messages],
+	)
 
 	return (
 		<div className="flex flex-col h-screen bg-white">
-			{/* Header */}
-			<header className="bg-gradient-to-l from-white to-gray-50 border-b border-gray-200 px-4 py-4 shadow-sm">
-				<div className="max-w-4xl mx-auto flex items-center justify-between">
-					<div className="flex items-center gap-3">
-						<div
-							className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl 
-							flex items-center justify-center shadow-md transform hover:scale-110 
-							transition-transform duration-300"
-						>
-							<span className="text-white text-xl font-bold">
-								م
-							</span>
-						</div>
-						<div>
-							<h1 className="text-xl font-bold text-gray-800">
-								متا
-							</h1>
-							<p className="text-xs text-gray-500">
-								دستیار هوشمند شهرسازی
-							</p>
-						</div>
-					</div>
-
-					<div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full">
-						<div className="relative flex items-center justify-center">
-							<div className="w-2 h-2 bg-green-500 rounded-full"></div>
-							<div className="absolute inset-0 w-2 h-2 bg-green-500 rounded-full animate-pulse-ring"></div>
-						</div>
-						<span className="text-xs text-green-700 font-medium">
-							آنلاین
-						</span>
-					</div>
-				</div>
-			</header>
-
 			{/* Messages Area - با custom-scrollbar */}
 			<div
 				ref={messagesContainerRef}
@@ -193,7 +259,9 @@ const ChatInterface = () => {
 									rounded-full flex items-center justify-center shadow-xl 
 									transform hover:scale-110 transition-transform duration-300"
 								>
-									<span className="text-4xl">🤖</span>
+									<span className="text-white text-5xl font-bold">
+										م
+									</span>
 								</div>
 							</div>
 
@@ -260,19 +328,24 @@ const ChatInterface = () => {
 						</div>
 					) : (
 						<>
-							{messages.map((msg, idx) => (
+							{messages.map((msg) => (
 								<Message
-									key={idx}
+									key={msg.id} // ✅ استفاده از unique ID
 									message={msg}
 									onRegenerate={
 										msg.role === "assistant"
-											? () => handleRegenerate(idx)
+											? () => handleRegenerate(msg.id)
 											: null
 									}
-									// ✅ فقط برای آخرین پیام ربات typing effect فعاله
+									isRegenerating={
+										isLoading &&
+										msg.id ===
+											messages[messages.length - 1]?.id
+									}
 									enableTyping={
 										msg.role === "assistant" &&
-										idx === messages.length - 1 &&
+										msg.id ===
+											messages[messages.length - 1]?.id &&
 										!isLoading
 									}
 								/>
