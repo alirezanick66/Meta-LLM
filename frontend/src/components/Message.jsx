@@ -3,22 +3,49 @@ import MessageActions from "./MessageActions"
 import { useTypingEffect } from "../hooks/useTypingEffect"
 
 /**
- * کامپوننت نمایش پیام (با typing effect)
+ * کامپوننت نمایش پیام (با افکت‌های مختلف typing)
  * @param {Object} message - شیء پیام
  * @param {Function} onRegenerate - تابع تولید مجدد
  * @param {boolean} enableTyping - فعال بودن افکت تایپ
+ * @param {string} typingEffect - نوع افکت: 'default' | 'wave' | 'slideIn' | 'blur' | 'scale' | 'flip' | 'glitch'
  */
-const Message = ({ message, onRegenerate, enableTyping = false }) => {
+const Message = ({
+	message,
+	onRegenerate,
+	enableTyping = false,
+	typingEffect = "slideIn", // ← نوع افکت
+}) => {
 	const isUser = message.role === "user"
 
-	// فقط برای پیام‌های ربات typing effect فعال میشه
+	// Typing effect
 	const { displayedText, isTyping } = useTypingEffect(
 		message.content,
-		20,
+		20, // سرعت
 		enableTyping && !isUser,
 	)
 
 	const content = enableTyping && !isUser ? displayedText : message.content
+
+	// انتخاب افکت
+	const renderContent = () => {
+		if (!enableTyping || isUser) {
+			return content
+		}
+
+		switch (typingEffect) {
+			case "slideIn":
+				// کل متن لغزش از راست
+				return (
+					<span className="inline-block animate-slideInRight">
+						{content}
+					</span>
+				)
+
+			default:
+				// حالت عادی (typewriter)
+				return content
+		}
+	}
 
 	return (
 		<div className="w-full py-2 animate-fadeIn group">
@@ -30,16 +57,17 @@ const Message = ({ message, onRegenerate, enableTyping = false }) => {
 						w-fit max-w-[85%]
 						${isUser ? "bg-[#fff6d9] text-gray-800" : "text-gray-800"}`}
 				>
-					{content}
-					{/* Cursor animation وقتی در حال تایپه */}
-					{isTyping && (
+					{renderContent()}
+
+					{/* Cursor animation (فقط برای حالت default) */}
+					{isTyping && typingEffect === "default" && (
 						<span className="inline-block w-0.5 h-4 bg-gray-800 ml-1 animate-pulse">
 							▌
 						</span>
 					)}
 				</div>
 
-				{/* Actions - فقط وقتی typing تموم شده */}
+				{/* Actions */}
 				{!isTyping && (
 					<MessageActions
 						content={message.content}

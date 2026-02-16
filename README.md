@@ -38,11 +38,14 @@
 - **LLM Fallback:** Gemini API - gemini-2.0-flash-exp ✅
 - **Persian Processing:** Custom Normalizer (بدون Hazm، با str.translate برای سرعت)
 
-### **Frontend:** (فاز 10)
+### **Frontend:**
 
-- **Framework:** React
+- **Framework:** React 18
+- **Build Tool:** Vite
 - **Styling:** Tailwind CSS
-- **UI:** Chat Interface مدرن
+- **HTTP Client:** Axios
+- **State:** React Hooks
+- **UI Features:** Typing effect، Custom scrollbar، Skeleton loading
 
 ### **DevOps:**
 
@@ -58,18 +61,18 @@
 
 ```json
 {
-    "source": "filename.md",
-    "chunk_id": "doc_1_chunk_005",
-    "document_id": 1,
-    "chunk_index": 5,
-    "title": "عنوان اصلی",
-    "section": "بخش فرعی",
-    "subsection": "زیربخش",
-    "hierarchy": "عنوان > بخش > زیربخش",
-    "has_list": True,
-    "heading_level": 3,
-    "token_count": 487,
-    "created_at": "2026-02-13T10:26:00Z"
+	"source": "filename.md",
+	"chunk_id": "doc_1_chunk_005",
+	"document_id": 1,
+	"chunk_index": 5,
+	"title": "عنوان اصلی",
+	"section": "بخش فرعی",
+	"subsection": "زیربخش",
+	"hierarchy": "عنوان > بخش > زیربخش",
+	"has_list": true,
+	"heading_level": 3,
+	"token_count": 487,
+	"created_at": "2026-02-13T10:26:00Z"
 }
 ```
 
@@ -79,9 +82,9 @@
 - **Chunk Size:** 512 tokens (BGE-M3 tokenizer)
 - **Overlap:** 128 tokens (25%)
 - **Splitters:**
-  - Markdown headers (`#`, `##`, `###`, `####`)
-  - Paragraphs (`\n\n`)
-  - Sentences (`,`, `.`)
+    - Markdown headers (`#`, `##`, `###`, `####`)
+    - Paragraphs (`\n\n`)
+    - Sentences (`,`, `.`)
 
 **مزایا:**
 
@@ -93,7 +96,7 @@
 
 ---
 
-## 🔍 Retrieval Architecture (فاز 5 ✅)
+## 🔍 Retrieval Architecture
 
 ```
 User Query
@@ -190,8 +193,8 @@ INDEX idx_chunks_chunk_index
 
 - **Storage:** `backend/data/storage/bm25/`
 - **Files:**
-  - `bm25_index.pkl` - BM25Okapi object
-  - `chunk_mapping.pkl` - {chunk_ids, chunk_contents}
+    - `bm25_index.pkl` - BM25Okapi object
+    - `chunk_mapping.pkl` - {chunk_ids, chunk_contents}
 
 ---
 
@@ -225,7 +228,7 @@ INDEX idx_chunks_chunk_index
 - PostgreSQL models (Document, Chunk)
 - Alembic migrations
 - Qdrant client با SHA-256 point IDs
-- PostgresManager (CRUD operations)
+- PostgresManager (CRUD operations با bulk methods)
 
 #### ✅ **فاز 3: Document Processing**
 
@@ -273,35 +276,10 @@ INDEX idx_chunks_chunk_index
 #### ✅ **فاز 6: LLM Integration**
 
 - ✅ **TokenizerService:** Singleton با lazy loading
-  - BGE-M3 tokenizer (chunking)
-  - Persian tokenizer (prompt building)
-  - Thread-safe با double-check locking
-- ✅ **PromptBuilder:** ساخت prompt بهینه
-  - شمارش دقیق توکن (نه کاراکتر!)
-  - تشخیص سوالات سیستمی (Regex)
-  - Template leakage prevention
-  - Metadata منابع در خروجی
-- ✅ **GroqClient:** Groq API integration
-  - Model: llama-3.3-70b-versatile
-  - Temperature: 0.3 (configurable)
-  - Error handling و logging
-- ✅ **GeminiClient:** Gemini API fallback
-  - Model: gemini-2.0-flash-exp
-  - Safety settings
-  - Automatic fallback
-- ✅ **LLMOrchestrator:** مدیریت کل
-  - Primary: Groq
-  - Fallback: Gemini (auto)
-  - Response با metadata کامل
-  - dataclass output (LLMResponse)
-
-**Components:**
-
-- `services/tokenizer_service.py`
-- `services/llm/groq_client.py`
-- `services/llm/gemini_client.py`
-- `services/llm/prompt_builder.py`
-- `services/llm/llm_orchestrator.py`
+- ✅ **PromptBuilder:** ساخت prompt بهینه با token counting
+- ✅ **GroqClient:** Groq API - llama-3.3-70b-versatile
+- ✅ **GeminiClient:** Gemini API fallback - gemini-2.0-flash-exp
+- ✅ **LLMOrchestrator:** مدیریت Primary/Fallback با metadata کامل
 
 **Features:**
 
@@ -311,120 +289,197 @@ INDEX idx_chunks_chunk_index
 - Source tracking
 - Error recovery
 
-### 🔵 **فاز بعدی:**
+#### ✅ **فاز 9: API Layer** 🆕
+
+- ✅ **FastAPI Application:** با lifespan management و CORS
+- ✅ **Pydantic Schemas:** Request/Response validation
+    - Enums (LLMProvider, HealthStatus)
+    - computed_field برای total_tokens
+    - Pydantic V2 syntax
+- ✅ **API Endpoints:**
+    - `POST /api/chat` - RAG pipeline endpoint
+    - `GET /api/stats` - آمار سیستم
+    - `GET /health` - Health check با metrics
+    - `GET /` - API documentation
+- ✅ **Exception Handling:** با traceback و type-based handling
+- ✅ **Dependency Injection:** Singleton pattern برای services
+- ✅ **Performance Optimization:**
+    - `run_in_threadpool` برای async-safe operations
+    - Bulk database queries (N+1 حل شد)
+    - Memory optimization با Singleton
+
+- ✅**Components:**
+    - `app/api/routes.py` - API endpoints
+    - `app/api/dependencies.py` - Dependency injection
+    - `app/api/exceptions.py` - Exception handlers
+    - `app/schemas/api_schemas.py` - Pydantic models
+    - `app/main.py` - FastAPI application
+
+- ✅**Performance Improvements:**
+    - Response Time: 14% faster (2650ms → 2270ms)
+    - DB Queries: 80% کمتر (N queries → 1 query)
+    - Concurrent Users: 10x بهتر (1 → 10+)
+
+- ✅**Testing:**
+    - `scripts/test_api.py` - Automated API tests
+    - 6/6 tests passed ✅
+    - Coverage: Health, Stats, Chat (RAG + System Questions)
+
+#### ✅ **فاز 10: Frontend** 🆕
+
+- ✅ **React 18 + Vite:** Modern build tool
+- ✅ **Tailwind CSS:** Utility-first styling با theme سفارشی
+- ✅ **Components:**
+    - `ChatInterface` - Main chat container
+    - `Message` - با typing effect (slideIn animation)
+    - `InputBox` - با progress bar و gradient button
+    - `MessageActions` - Copy & Regenerate (edit mode)
+    - `SkeletonMessage` - Loading state
+    - `ScrollToBottom` - Floating scroll button
+- ✅ **Custom Hooks:**
+    - `useTypingEffect` - Character-by-character typing
+- ✅ **Features:**
+    - ✅ RTL Support کامل (فارسی)
+    - ✅ Responsive Design (موبایل + دسکتاپ)
+    - ✅ Typing Effect با slideIn animation
+    - ✅ Copy to clipboard
+    - ✅ Regenerate با edit mode (همون پیام آپدیت میشه)
+    - ✅ Scroll to bottom button (وقتی بالا رفتی)
+    - ✅ Custom scrollbar (gradient، سمت راست)
+    - ✅ Skeleton loading
+    - ✅ Empty state با example questions
+    - ✅ Error handling
+    - ✅ Auto-scroll
+    - ✅ Character counter (0/1000)
+    - ✅ Keyboard shortcuts (Enter/Shift+Enter)
+
+**Styling:**
+
+- Light theme (سفید/خاکستری)
+- پیام کاربر: `#fff6d9` (زرد روشن)
+- پیام ربات: بدون background
+- Gradient buttons و icons
+- فونت: mikhak (local)
+
+**Structure:**
+
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── ChatInterface.jsx
+│   │   ├── Message.jsx
+│   │   ├── MessageActions.jsx
+│   │   ├── InputBox.jsx
+│   │   ├── SkeletonMessage.jsx
+│   │   └── ScrollToBottom.jsx
+│   ├── hooks/
+│   │   └── useTypingEffect.js
+│   ├── services/
+│   │   └── api.js
+│   ├── index.css
+│   └── main.jsx
+├── index.html
+├── tailwind.config.js
+├── vite.config.js
+└── package.json
+```
+
+**Development:**
+
+```bash
+cd frontend
+npm install
+npm run dev  # http://localhost:3000
+```
+
+### 🔵 **فازهای بعدی:**
 
 #### 🟤 **فاز 7: Caching & Optimization**
 
 - ⬜ Redis caching strategy
 - ⬜ Query cache
 - ⬜ Embedding cache
-- ⬜Response cache
+- ⬜ Response cache
+- ⬜ Connection pooling
 
 #### ⚫ **فاز 8: Logging & Monitoring**
 
-- ⬜ Loguru configuration
-- ⬜ Structured logging (فارسی)
-- ⬜ Error tracking
+- ⬜ Advanced metrics
+- ⬜ Performance monitoring
+- ⬜ Error tracking dashboard
 
-#### 🔴 **فاز 9: API Layer**
+#### 🟡 **فاز 11: Advanced Features**
 
--⬜FastAPI app structure
-
-- ⬜ Chat endpoint
-- ⬜ Request/Response schemas (Pydantic)
-- ⬜ Error handling
-
-#### 🟠 **فاز 10: Frontend**
-
-- ⬜ React + Vite
-- ⬜ Tailwind UI
-- ⬜ Chat Interface
-- ⬜ API integration
-  -⬜ Source display
-
-#### 🟡 **فاز 11: Integration & Testing**
-
-- ⬜ End-to-end tests
-- ⬜ Performance benchmarks
+- ⬜ Sidebar + Chat history
+- ⬜ Source cards با modal
+- ⬜ Settings panel
+- ⬜ Dark/Light mode toggle
+- ⬜ Voice input
 
 #### 🟢 **فاز 12: Deployment**
 
 - ⬜ Production config
+- ⬜ Docker production images
+- ⬜ CI/CD pipeline
 - ⬜ Deployment guide
-
----
-
-## 🎯 Priority Roadmap
-
-### 🔴 **Priority 1 (فاز 7)**
-
-- Redis Caching
-- Query optimization
-- Embedding cache
-- Response caching
-
-### 🟡 **Priority 2 (Nice to Have)**
-
-- Rate Limiting
-- Health/Metrics endpoints
-- Streaming responses
-- Export chat
-- Feedback system
-
-### 🟢 **Priority 3 (Future)**
-
-- Testing suite
-- Admin panel
-- Multi-document upload
-- Advanced analytics
 
 ---
 
 ## 🛠️ راه‌اندازی محیط توسعه
 
-### **1. نصب Dependencies:**
+### **نصب و راه‌اندازی:**
+
+#### **1. Backend:**
 
 ```bash
+# نصب Dependencies
 pip install -r requirements.txt
-```
 
-### **2. راه‌اندازی Docker:**
-
-```bash
+# راه‌اندازی Docker
 docker-compose up -d
-```
 
-### **3. بررسی وضعیت سرویس‌ها:**
-
-```bash
+# بررسی وضعیت
 docker-compose ps
-```
 
-### **4. اجرای Migrations:**
-
-```bash
+# اجرای Migrations
 alembic upgrade head
-```
 
-### **5. تست Indexing:**
-
-```bash
+# تست Indexing
 python scripts/test_full_indexing.py
+
+# اجرای API
+uvicorn backend.app.main:app --reload
 ```
 
-### **6. تست Retrieval:**
+#### **2. Frontend:**
 
 ```bash
+# نصب Dependencies
+cd frontend
+npm install
+
+# اجرای Development Server
+npm run dev
+
+# Build برای Production
+npm run build
+```
+
+### **تست‌ها:**
+
+```bash
+# تست API
+python scripts/test_api.py
+
+# تست Retrieval
 python scripts/test_retrieval.py
-```
 
-### **7. تست RAG Pipeline:**
-
-```bash
+# تست RAG Pipeline
 python scripts/test_rag_pipeline.py
 ```
 
-### **8. مشاهده Logs:**
+### **مشاهده Logs:**
 
 ```bash
 # Logs همه سرویس‌ها
@@ -444,124 +499,37 @@ docker-compose logs -f postgres
 ```
 Meta/
 ├── backend/
-│   ├── alembic/              # Database migrations
-│   │   └── versions/
+│   ├── alembic/
 │   ├── app/
-│   │   ├── core/             # Config, Database
-│   │   │   ├── config.py
-│   │   │   └── database.py
-│   │   ├── db/               # Models, Managers
-│   │   │   ├── models.py
-│   │   │   ├── postgres.py
-│   │   │   └── qdrant_client.py
-│   │   ├── services/         # Business logic
-│   │   │   ├── retrieval/    # 🆕 Retrieval components
-│   │   │   │   ├── bm25_indexer.py
-│   │   │   │   ├── vector_retriever.py
-│   │   │   │   └── hybrid_retriever.py
-│   │   │   ├── llm/          # 🆕 LLM components
-│   │   │   │   ├── groq_client.py
-│   │   │   │   ├── gemini_client.py
-│   │   │   │   ├── prompt_builder.py
-│   │   │   │   └── llm_orchestrator.py
-│   │   │   ├── document/     # 🆕 Document processing
-│   │   │   │   ├── markdown_extractor.py
-│   │   │   │   ├── chunker.py
-│   │   │   │   └── indexing_pipeline.py
-│   │   │   ├── tokenizer_service.py  # 🆕 Singleton tokenizer
-│   │   │   ├── embedding_service.py
-│   │   │   └── qdrant_indexer.py
-│   │   ├── schemas/          # Pydantic models
-│   │   │   └── chunk_schemas.py
-│   │   └── utils/            # Helpers
-│   │       ├── logging_config.py
-│   │       ├── custom_normalizer.py
-│   │       └── hash_utils.py
+│   │   ├── core/
+│   │   ├── db/
+│   │   ├── api/              # 🆕 API Layer
+│   │   │   ├── routes.py
+│   │   │   ├── dependencies.py
+│   │   │   └── exceptions.py
+│   │   ├── schemas/          # 🆕 Pydantic Schemas
+│   │   │   └── api_schemas.py
+│   │   ├── services/
+│   │   │   ├── retrieval/
+│   │   │   ├── llm/
+│   │   │   └── document/
+│   │   └── utils/
 │   ├── data/
-│   │   ├── documents/        # فایل‌های .md
-│   │   ├── storage/
-│   │   │   └── bm25/         # BM25 cache
-│   │   └── logs/             # Log files
 │   └── main.py
-├── scripts/                  # Test scripts
-│   ├── test_normalizer.py
-│   ├── test_markdown_extractor.py
-│   ├── test_chunker.py
-│   ├── test_full_indexing.py
-│   ├── test_retrieval.py         # 🆕
-│   └── test_rag_pipeline.py      # 🆕
-├── models/                   # مدل‌های دانلود شده
-│   └── bge-m3/
+├── frontend/                 # 🆕 Frontend
+│   ├── src/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── services/
+│   │   └── index.css
+│   ├── index.html
+│   ├── tailwind.config.js
+│   ├── vite.config.js
+│   └── package.json
+├── scripts/
 ├── docker-compose.yml
-├── alembic.ini
 ├── requirements.txt
-├── .env
-├── .env.example
-├── .gitignore
 └── README.md
-```
-
-### **2. تست Markdown Extractor:**
-
-```bash
-python scripts/test_markdown_extractor.py
-```
-
-### **3. تست Chunker:**
-
-```bash
-python scripts/test_chunker.py
-```
-
-### **4. تست کامل Indexing Pipeline:**
-
-```bash
-python scripts/test_full_indexing.py
-```
-
-**خروجی مورد انتظار:**
-
-```
-✅ تست موفقیت‌آمیز بود!
-📄 Document ID: 3
-🧩 Total Chunks: 68
-📊 Qdrant Vectors: 68
-📊 BM25 Chunks: 68
-```
-
-### **5. تست Retrieval System:** 🆕
-
-```bash
-python scripts/test_retrieval.py
-```
-
-**خروجی مورد انتظار:**
-
-```
-✅ 5 نتیجه بازیابی شد
-📊 RRF Stats:
-   Total Unique: 23
-   Both Methods: 17
-   Only BM25: 3
-   Only Vector: 3
-```
-
-### **6. تست RAG Pipeline (End-to-End):** 🆕
-
-```bash
-python scripts/test_rag_pipeline.py
-```
-
-**خروجی مورد انتظار:**
-
-```
-🤖 Provider: GROQ
-📦 Model: llama-3.3-70b-versatile
-📊 Usage: Prompt=2847, Completion=309, Total=3156
-📚 Sources Used: 5
-🤔 Is System Question: False
-📄 پاسخ نهایی:
-انقلاب اسلامی ایران تأثیرات قابل توجهی...
 ```
 
 ---
@@ -571,53 +539,43 @@ python scripts/test_rag_pipeline.py
 ### **1. Qdrant Connection Error:**
 
 ```bash
-# چک کردن وضعیت
-docker-compose ps
-
-# راه‌اندازی مجدد
 docker-compose restart qdrant
-
-# تست اتصال
 curl http://localhost:6333/health
 ```
 
 ### **2. PostgreSQL Connection Error:**
 
 ```bash
-# چک کردن logs
 docker-compose logs postgres
-
-# راه‌اندازی مجدد
 docker-compose restart postgres
 ```
 
-### **3. Memory Error در Embedding:**
+### **3. Frontend - CORS Error:**
 
-```env
-# کاهش batch_size در .env
-EMBEDDING_BATCH_SIZE=16
+```bash
+# بررسی کنید Backend روشن است
+curl http://localhost:8000/health
+
+# بررسی Vite proxy config
+cat frontend/vite.config.js
 ```
 
-### **4. Groq API Error (Rate Limit):** 🆕
+### **4. Frontend - VPN Issues:**
 
-```
-⚠️ Groq خطا داد: Rate limit exceeded
-🔄 مرحله 2: Fallback به Gemini...
-✅ پاسخ از Gemini دریافت شد
-```
+اگه با VPN مشکل دارید، در `vite.config.js`:
 
-**راه‌حل:** Automatic fallback به Gemini
+```js
+server: {
+  host: '127.0.0.1',  // بجای localhost
+  port: 3000,
+}
+```
 
 ### **5. پاک کردن همه داده‌ها:**
 
 ```bash
-# حذف volumes
 docker-compose down -v
-
-# راه‌اندازی مجدد
 docker-compose up -d
-
-# اجرای migrations
 alembic upgrade head
 ```
 
@@ -632,8 +590,8 @@ alembic upgrade head
 ## 📌 اطلاعات نسخه
 
 - **نسخه:** 1.0.0
-- **آخرین بروزرسانی:** 2026-02-15
-- **وضعیت:** فاز 6 تکمیل شد ✅
+- **آخرین بروزرسانی:** 2026-02-16
+- **وضعیت:** فاز 10 تکمیل شد ✅
 - **مرحله بعدی:** فاز 7 - Caching & Optimization
 
 ---
