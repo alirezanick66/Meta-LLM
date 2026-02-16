@@ -1,24 +1,46 @@
 import React, { useState, useRef, useEffect } from "react"
 import Message from "./Message"
+import SkeletonMessage from "./SkeletonMessage"
+import ScrollToBottom from "./ScrollToBottom"
 import InputBox from "./InputBox"
 import { sendMessage } from "../services/api"
 
 /**
- * کامپوننت اصلی چت
+ * کامپوننت اصلی چت (با regenerate که edit می‌کنه)
  */
 const ChatInterface = () => {
 	const [messages, setMessages] = useState([])
 	const [isLoading, setIsLoading] = useState(false)
 	const [error, setError] = useState(null)
+	const [showScrollButton, setShowScrollButton] = useState(false)
 	const messagesEndRef = useRef(null)
+	const messagesContainerRef = useRef(null)
 
 	// Auto-scroll به آخرین پیام
-	const scrollToBottom = () => {
-		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+	const scrollToBottom = (behavior = "smooth") => {
+		messagesEndRef.current?.scrollIntoView({ behavior })
 	}
 
+	// Scroll event برای نمایش دکمه scroll to bottom
 	useEffect(() => {
-		scrollToBottom()
+		const container = messagesContainerRef.current
+		if (!container) return
+
+		const handleScroll = () => {
+			const { scrollTop, scrollHeight, clientHeight } = container
+			const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
+			setShowScrollButton(!isNearBottom && messages.length > 0)
+		}
+
+		container.addEventListener("scroll", handleScroll)
+		return () => container.removeEventListener("scroll", handleScroll)
+	}, [messages.length])
+
+	// Auto-scroll وقتی پیام جدید میاد
+	useEffect(() => {
+		if (messages.length > 0) {
+			scrollToBottom()
+		}
 	}, [messages])
 
 	// ارسال پیام
@@ -65,12 +87,67 @@ const ChatInterface = () => {
 		}
 	}
 
+	// Regenerate پاسخ (edit همون پیام)
+	const handleRegenerate = async (messageIndex) => {
+		if (messageIndex < 1) return // باید حداقل یه سوال قبلش باشه
+
+		// پیدا کردن سوال مربوط به این پاسخ
+		let userMessageIndex = -1
+		for (let i = messageIndex - 1; i >= 0; i--) {
+			if (messages[i].role === "user") {
+				userMessageIndex = i
+				break
+			}
+		}
+
+		if (userMessageIndex === -1) return
+
+		const userMessage = messages[userMessageIndex]
+
+		// نشون دادن loading
+		setIsLoading(true)
+
+		try {
+			const response = await sendMessage(userMessage.content)
+
+			if (response.success) {
+				// ✅ آپدیت همون پیام (نه append)
+				setMessages((prev) => {
+					const newMessages = [...prev]
+					newMessages[messageIndex] = {
+						...newMessages[messageIndex],
+						content: response.answer,
+						timestamp: new Date(response.timestamp),
+						sources: response.sources,
+						metadata: response.metadata,
+					}
+					return newMessages
+				})
+			} else {
+				throw new Error(response.error || "خطای نامشخص")
+			}
+		} catch (err) {
+			console.error("Error regenerating:", err)
+
+			// آپدیت با پیام خطا
+			setMessages((prev) => {
+				const newMessages = [...prev]
+				newMessages[messageIndex] = {
+					...newMessages[messageIndex],
+					content: `❌ ${err.message || "خطا در تولید مجدد"}`,
+				}
+				return newMessages
+			})
+		} finally {
+			setIsLoading(false)
+		}
+	}
+
 	return (
 		<div className="flex flex-col h-screen bg-white">
-			{/* ========== Header ========== */}
+			{/* Header */}
 			<header className="bg-gradient-to-l from-white to-gray-50 border-b border-gray-200 px-4 py-4 shadow-sm">
 				<div className="max-w-4xl mx-auto flex items-center justify-between">
-					{/* Logo + Title */}
 					<div className="flex items-center gap-3">
 						<div
 							className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl 
@@ -91,7 +168,6 @@ const ChatInterface = () => {
 						</div>
 					</div>
 
-					{/* Status */}
 					<div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full">
 						<div className="relative flex items-center justify-center">
 							<div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -104,11 +180,14 @@ const ChatInterface = () => {
 				</div>
 			</header>
 
-			{/* ========== Messages Area ========== */}
-			<div className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin bg-white">
+			{/* Messages Area */}
+			<div
+				ref={messagesContainerRef}
+				className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin bg-white"
+			>
 				<div className="max-w-4xl mx-auto">
 					{messages.length === 0 ? (
-						// ========== Empty State ==========
+						// Empty State
 						<div className="text-center mt-20 animate-fadeIn">
 							<div className="relative inline-block mb-6">
 								<div className="absolute inset-0 bg-green-400 rounded-full blur-2xl opacity-20 animate-pulse"></div>
@@ -185,42 +264,32 @@ const ChatInterface = () => {
 					) : (
 						<>
 							{messages.map((msg, idx) => (
-								<Message key={idx} message={msg} />
+								<Message
+									key={idx}
+									message={msg}
+									// ✅ فقط برای پیام‌های ربات onRegenerate رو بفرست
+									onRegenerate={
+										msg.role === "assistant"
+											? () => handleRegenerate(idx)
+											: null
+									}
+								/>
 							))}
 
-							{/* Loading */}
-							{isLoading && (
-								<div className="flex justify-start mb-4 animate-fadeIn">
-									<div className="px-4 py-3">
-										<div className="flex items-center gap-3">
-											<div className="flex gap-1">
-												<div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce-smooth"></div>
-												<div
-													className="w-2 h-2 bg-gray-400 rounded-full animate-bounce-smooth"
-													style={{
-														animationDelay: "0.2s",
-													}}
-												></div>
-												<div
-													className="w-2 h-2 bg-gray-400 rounded-full animate-bounce-smooth"
-													style={{
-														animationDelay: "0.4s",
-													}}
-												></div>
-											</div>
-											<span className="text-sm text-gray-500">
-												در حال تایپ
-											</span>
-										</div>
-									</div>
-								</div>
-							)}
+							{/* Skeleton Loading */}
+							{isLoading && <SkeletonMessage />}
 						</>
 					)}
 
 					<div ref={messagesEndRef} />
 				</div>
 			</div>
+
+			{/* Scroll to Bottom Button */}
+			<ScrollToBottom
+				show={showScrollButton}
+				onClick={() => scrollToBottom()}
+			/>
 
 			{/* Input Box */}
 			<InputBox onSend={handleSend} isLoading={isLoading} />
