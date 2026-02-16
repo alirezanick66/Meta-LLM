@@ -20,6 +20,7 @@
 	font-style: normal;
 	font-display: swap;
 }
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -31,11 +32,10 @@
 	}
 
 	body {
-		@apply font-sans antialiased text-gray-900; /* متن کلی تیره شد */
+		@apply font-sans antialiased text-gray-900;
 	}
 }
 
-/* ... بقیه کد */
 @layer components {
 	/* Scrollbar styling برای تم روشن */
 	.scrollbar-thin::-webkit-scrollbar {
@@ -43,11 +43,11 @@
 	}
 
 	.scrollbar-thin::-webkit-scrollbar-track {
-		@apply bg-gray-100; /* رنگ زمینه اسکرول بار روشن */
+		@apply bg-gray-100;
 	}
 
 	.scrollbar-thin::-webkit-scrollbar-thumb {
-		@apply bg-gray-300 rounded-full; /* رنگ دانه اسکرول بار روشن */
+		@apply bg-gray-300 rounded-full;
 	}
 
 	.scrollbar-thin::-webkit-scrollbar-thumb:hover {
@@ -77,5 +77,52 @@
 
 	.animate-typing-delay-2 {
 		animation: typing 1.4s infinite 0.4s;
+	}
+
+	/* Fade-in animation برای پیام‌ها */
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+			transform: translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	.animate-fadeIn {
+		animation: fadeIn 0.3s ease-out;
+	}
+
+	/* Bounce animation بهتر */
+	@keyframes bounce {
+		0%,
+		100% {
+			transform: translateY(0);
+		}
+		50% {
+			transform: translateY(-4px);
+		}
+	}
+
+	.animate-bounce-smooth {
+		animation: bounce 1s infinite;
+	}
+
+	/* Pulse animation برای status */
+	@keyframes pulse-ring {
+		0% {
+			transform: scale(0.95);
+			opacity: 1;
+		}
+		100% {
+			transform: scale(1.5);
+			opacity: 0;
+		}
+	}
+
+	.animate-pulse-ring {
+		animation: pulse-ring 1.5s ease-out infinite;
 	}
 }

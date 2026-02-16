@@ -1,36 +1,25 @@
 import React from "react"
 
 /**
- * کامپوننت نمایش پیام (بدون آواتار، چسبیده به راست)
- * @param {Object} message - شیء پیام {role: 'user'|'assistant', content: string, timestamp: Date}
+ * کامپوننت نمایش پیام (کادر زرد به اندازه متن)
+ * @param {Object} message - شیء پیام {role: 'user'|'assistant', content: string}
  */
 const Message = ({ message }) => {
 	const isUser = message.role === "user"
 
 	return (
-		<div className="w-full py-6">
-			{/* کانتینر محتوا: با ml-auto به سمت راست هل داده شده است */}
-			<div className="max-w-3xl ml-auto mr-4 px-4">
-				{/* متن پیام */}
+		<div className="w-full py-2 animate-fadeIn">
+			{/* کانتینر اصلی */}
+			<div className="max-w-3xl ml-auto mr-4 px-4 flex flex-col items-start">
+				{/* متن پیام - w-fit برای عرض دینامیک */}
 				<div
-					className={`text-sm md:text-base leading-7 whitespace-pre-wrap break-words text-gray-800
-            ${isUser ? "bg-[#fff6d9] px-4 py-3 rounded-lg shadow-sm" : ""}`}
+					className={`text-sm md:text-base leading-7 whitespace-pre-wrap break-words 
+						transition-all duration-300 px-4 py-3 rounded-2xl 
+						w-fit max-w-[85%]
+						${isUser ? "bg-[#fff6d9] text-gray-800" : "text-gray-800"}`}
 				>
 					{message.content}
 				</div>
-
-				{/* زمان */}
-				{message.timestamp && (
-					<div className="text-xs text-gray-400 mt-1 mr-1">
-						{new Date(message.timestamp).toLocaleTimeString(
-							"fa-IR",
-							{
-								hour: "2-digit",
-								minute: "2-digit",
-							},
-						)}
-					</div>
-				)}
 			</div>
 		</div>
 	)

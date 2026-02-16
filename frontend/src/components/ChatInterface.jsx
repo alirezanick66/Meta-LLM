@@ -23,7 +23,6 @@ const ChatInterface = () => {
 
 	// ارسال پیام
 	const handleSend = async (content) => {
-		// پیام کاربر رو اضافه کن
 		const userMessage = {
 			role: "user",
 			content,
@@ -35,11 +34,9 @@ const ChatInterface = () => {
 		setError(null)
 
 		try {
-			// ارسال به API
 			const response = await sendMessage(content)
 
 			if (response.success) {
-				// پیام ربات رو اضافه کن
 				const botMessage = {
 					role: "assistant",
 					content: response.answer,
@@ -50,14 +47,12 @@ const ChatInterface = () => {
 
 				setMessages((prev) => [...prev, botMessage])
 			} else {
-				// خطا از API
 				throw new Error(response.error || "خطای نامشخص")
 			}
 		} catch (err) {
 			console.error("Error sending message:", err)
 			setError(err.message || "خطا در ارسال پیام")
 
-			// پیام خطا رو به عنوان پیام ربات نشون بده
 			const errorMessage = {
 				role: "assistant",
 				content: `❌ ${err.message || "متأسفانه مشکلی پیش آمده. لطفاً دوباره تلاش کنید."}`,
@@ -71,57 +66,151 @@ const ChatInterface = () => {
 	}
 
 	return (
-		<div className="flex flex-col h-screen bg-primary-bg">
-			{/* Messages Area */}
-			<div className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin">
+		<div className="flex flex-col h-screen bg-white">
+			{/* ========== Header ========== */}
+			<header className="bg-gradient-to-l from-white to-gray-50 border-b border-gray-200 px-4 py-4 shadow-sm">
+				<div className="max-w-4xl mx-auto flex items-center justify-between">
+					{/* Logo + Title */}
+					<div className="flex items-center gap-3">
+						<div
+							className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl 
+							flex items-center justify-center shadow-md transform hover:scale-110 
+							transition-transform duration-300"
+						>
+							<span className="text-white text-xl font-bold">
+								م
+							</span>
+						</div>
+						<div>
+							<h1 className="text-xl font-bold text-gray-800">
+								متا
+							</h1>
+							<p className="text-xs text-gray-500">
+								دستیار هوشمند شهرسازی
+							</p>
+						</div>
+					</div>
+
+					{/* Status */}
+					<div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full">
+						<div className="relative flex items-center justify-center">
+							<div className="w-2 h-2 bg-green-500 rounded-full"></div>
+							<div className="absolute inset-0 w-2 h-2 bg-green-500 rounded-full animate-pulse-ring"></div>
+						</div>
+						<span className="text-xs text-green-700 font-medium">
+							آنلاین
+						</span>
+					</div>
+				</div>
+			</header>
+
+			{/* ========== Messages Area ========== */}
+			<div className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin bg-white">
 				<div className="max-w-4xl mx-auto">
 					{messages.length === 0 ? (
-						// پیام خوش‌آمدگویی
-						<div className="text-center text-gray-600 mt-20">
-							<div className="text-6xl mb-4">👋</div>
-							<h2 className="text-2xl font-bold mb-2 text-gray-800">
-								سلام! من متا هستم
+						// ========== Empty State ==========
+						<div className="text-center mt-20 animate-fadeIn">
+							<div className="relative inline-block mb-6">
+								<div className="absolute inset-0 bg-green-400 rounded-full blur-2xl opacity-20 animate-pulse"></div>
+								<div
+									className="relative w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 
+									rounded-full flex items-center justify-center shadow-xl 
+									transform hover:scale-110 transition-transform duration-300"
+								>
+									<span className="text-4xl">🤖</span>
+								</div>
+							</div>
+
+							<h2 className="text-3xl font-bold mb-3">
+								<span
+									className="bg-gradient-to-l from-gray-800 via-gray-700 to-gray-800 
+									bg-clip-text text-transparent"
+								>
+									سلام! من متا هستم
+								</span>
 							</h2>
-							<p className="text-sm">
-								از من در مورد انقلاب اسلامی بپرسید
+
+							<p className="text-gray-600 mb-8 text-lg">
+								از من درباره انقلاب اسلامی و شهرسازی بپرسید
 							</p>
+
 							<div className="mt-8 flex flex-col gap-2 items-center">
-								<p className="text-xs text-gray-400">
+								<p className="text-xs text-gray-400 mb-2">
 									مثال‌های سوال:
 								</p>
-								<div className="flex flex-wrap gap-2 justify-center max-w-2xl">
+								<div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-4xl mx-auto px-4">
 									{[
-										"انقلاب اسلامی چه تأثیری داشت؟",
-										"ویژگی‌های انقلاب اسلامی چیست؟",
-										"نقش امام خمینی در انقلاب",
+										{
+											emoji: "💡",
+											text: "انقلاب اسلامی چه تأثیری داشت؟",
+										},
+										{
+											emoji: "📚",
+											text: "ویژگی‌های انقلاب اسلامی چیست؟",
+										},
+										{
+											emoji: "🏛️",
+											text: "نقش امام خمینی در انقلاب",
+										},
 									].map((example, idx) => (
 										<button
 											key={idx}
-											onClick={() => handleSend(example)}
-											className="text-xs bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 
-                               px-3 py-2 rounded-lg transition-all text-gray-700 shadow-sm"
+											onClick={() =>
+												handleSend(example.text)
+											}
+											className="group relative overflow-hidden bg-white border-2 border-gray-200 
+												hover:border-green-400 hover:bg-green-50 p-4 rounded-2xl 
+												transition-all duration-300 shadow-sm hover:shadow-xl
+												transform hover:-translate-y-1 active:scale-95"
 										>
-											{example}
+											<span
+												className="absolute inset-0 bg-gradient-to-r from-transparent via-white 
+												to-transparent opacity-0 group-hover:opacity-20 transform translate-x-[-100%] 
+												group-hover:translate-x-[100%] transition-transform duration-700"
+											></span>
+
+											<div className="relative">
+												<div className="text-2xl mb-2 group-hover:scale-110 transition-transform duration-300">
+													{example.emoji}
+												</div>
+												<p className="text-sm text-gray-700 group-hover:text-green-700 transition-colors">
+													{example.text}
+												</p>
+											</div>
 										</button>
 									))}
 								</div>
 							</div>
 						</div>
 					) : (
-						// لیست پیام‌ها
 						<>
 							{messages.map((msg, idx) => (
 								<Message key={idx} message={msg} />
 							))}
 
-							{/* Loading indicator - استایل مناسب تم روشن */}
+							{/* Loading */}
 							{isLoading && (
-								<div className="flex justify-start mb-4">
-									<div className="bg-bot-bg border border-gray-200 shadow-sm rounded-2xl px-4 py-3">
-										<div className="flex gap-1 mt-2">
-											<div className="w-2 h-2 bg-gray-400 rounded-full animate-typing"></div>
-											<div className="w-2 h-2 bg-gray-400 rounded-full animate-typing-delay-1"></div>
-											<div className="w-2 h-2 bg-gray-400 rounded-full animate-typing-delay-2"></div>
+								<div className="flex justify-start mb-4 animate-fadeIn">
+									<div className="px-4 py-3">
+										<div className="flex items-center gap-3">
+											<div className="flex gap-1">
+												<div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce-smooth"></div>
+												<div
+													className="w-2 h-2 bg-gray-400 rounded-full animate-bounce-smooth"
+													style={{
+														animationDelay: "0.2s",
+													}}
+												></div>
+												<div
+													className="w-2 h-2 bg-gray-400 rounded-full animate-bounce-smooth"
+													style={{
+														animationDelay: "0.4s",
+													}}
+												></div>
+											</div>
+											<span className="text-sm text-gray-500">
+												در حال تایپ
+											</span>
 										</div>
 									</div>
 								</div>
@@ -129,7 +218,6 @@ const ChatInterface = () => {
 						</>
 					)}
 
-					{/* Scroll target */}
 					<div ref={messagesEndRef} />
 				</div>
 			</div>
