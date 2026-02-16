@@ -41,16 +41,16 @@ const InputBox = ({ onSend, isLoading }) => {
 	}
 
 	return (
-		<div className="border-t border-gray-700 bg-primary-secondary p-4">
+		<div className="border-t border-gray-200 bg-white p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
 			<form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
 				<div className="flex items-end gap-2">
-					{/* دکمه ارسال */}
+					{/* دکمه ارسال (آمد بالاتر برای قرار گرفتن در سمت راست) */}
 					<button
 						type="submit"
 						disabled={!message.trim() || isLoading}
-						className="bg-primary-accent hover:bg-green-600 disabled:bg-gray-600 
+						className="bg-primary-accent hover:bg-green-600 disabled:bg-gray-300 
                      disabled:cursor-not-allowed text-white rounded-xl px-5 py-3 
-                     transition-colors flex-shrink-0 font-semibold"
+                     transition-colors flex-shrink-0 font-semibold h-[46px]"
 					>
 						{isLoading ? (
 							<span className="flex items-center gap-2">
@@ -78,6 +78,7 @@ const InputBox = ({ onSend, isLoading }) => {
 							"➤"
 						)}
 					</button>
+
 					{/* Textarea */}
 					<textarea
 						ref={textareaRef}
@@ -87,15 +88,15 @@ const InputBox = ({ onSend, isLoading }) => {
 						placeholder="پیام خود را بنویسید..."
 						disabled={isLoading}
 						rows={1}
-						className="flex-1 bg-primary-bg border border-gray-700 rounded-xl px-4 py-3 
-                     text-white placeholder-gray-500 resize-none focus:outline-none 
-                     focus:ring-2 focus:ring-primary-accent max-h-[200px] overflow-y-auto
-                     scrollbar-thin disabled:opacity-50 disabled:cursor-not-allowed"
+						className="flex-1 bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 
+                     text-gray-900 placeholder-gray-500 resize-none focus:outline-none 
+                     focus:ring-2 focus:ring-primary-accent focus:border-transparent max-h-[200px] overflow-y-auto
+                     scrollbar-thin disabled:opacity-50 disabled:cursor-not-allowed h-[46px]"
 					/>
 				</div>
 
 				{/* Character counter */}
-				<div className="text-xs text-gray-500 mt-2 text-left">
+				<div className="text-xs text-gray-400 mt-2 text-left">
 					{message.length}/1000
 				</div>
 			</form>

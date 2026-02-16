@@ -6,19 +6,19 @@ export default {
 		extend: {
 			colors: {
 				primary: {
-					bg: "#212121",
-					secondary: "#2f2f2f",
-					accent: "#10a37f",
+					bg: "#f9fafb", // خاکستری بسیار روشن برای پس‌زمینه کلی
+					secondary: "#ffffff", // سفید برای هدر و کانتینرها
+					accent: "#10a37f", // سبز اصلی (همان رنگ قبلی)
 				},
 				user: {
-					bg: "#2f4f4f",
+					bg: "#10a37f", // پیام کاربر سبز می‌ماند
 				},
 				bot: {
-					bg: "#1e1e1e",
+					bg: "#ffffff", // پیام ربات سفید
 				},
 			},
 			fontFamily: {
-				sans: ["Vazirmatn", "Inter", "system-ui", "sans-serif"],
+				sans: ["mikhak", "sans-serif"],
 			},
 		},
 	},

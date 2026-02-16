@@ -1,3 +1,25 @@
+/* فونت‌های لوکال */
+@font-face {
+	font-family: "mikhak";
+	src: url("./assets/fonts/Mikhak-Bold.woff2") format("woff2");
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "mikhak";
+	src: url("./assets/fonts/Mikhak-Medium.woff2") format("woff2");
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "mikhak";
+	src: url("./assets/fonts/Mikhak-Regular.woff2") format("woff2");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,26 +31,27 @@
 	}
 
 	body {
-		@apply font-sans antialiased;
+		@apply font-sans antialiased text-gray-900; /* متن کلی تیره شد */
 	}
 }
 
+/* ... بقیه کد */
 @layer components {
-	/* Scrollbar styling */
+	/* Scrollbar styling برای تم روشن */
 	.scrollbar-thin::-webkit-scrollbar {
 		width: 6px;
 	}
 
 	.scrollbar-thin::-webkit-scrollbar-track {
-		@apply bg-primary-secondary;
+		@apply bg-gray-100; /* رنگ زمینه اسکرول بار روشن */
 	}
 
 	.scrollbar-thin::-webkit-scrollbar-thumb {
-		@apply bg-gray-600 rounded-full;
+		@apply bg-gray-300 rounded-full; /* رنگ دانه اسکرول بار روشن */
 	}
 
 	.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-		@apply bg-gray-500;
+		@apply bg-gray-400;
 	}
 }
 
