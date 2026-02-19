@@ -45,7 +45,8 @@
 - **Styling:** Tailwind CSS
 - **HTTP Client:** Axios
 - **State:** React Hooks
-- **UI Features:** Typing effect، Custom scrollbar، Skeleton loading
+- **Markdown:** react-markdown + remark-gfm
+- **UI Features:** Typing effect، Custom scrollbar، Skeleton loading، Markdown rendering
 
 ### **DevOps:**
 
@@ -308,58 +309,82 @@ INDEX idx_chunks_chunk_index
     - Bulk database queries (N+1 حل شد)
     - Memory optimization با Singleton
 
-- ✅**Components:**
-    - `app/api/routes.py` - API endpoints
-    - `app/api/dependencies.py` - Dependency injection
-    - `app/api/exceptions.py` - Exception handlers
-    - `app/schemas/api_schemas.py` - Pydantic models
-    - `app/main.py` - FastAPI application
+**Components:**
 
-- ✅**Performance Improvements:**
-    - Response Time: 14% faster (2650ms → 2270ms)
-    - DB Queries: 80% کمتر (N queries → 1 query)
-    - Concurrent Users: 10x بهتر (1 → 10+)
+- `app/api/routes.py` - API endpoints
+- `app/api/dependencies.py` - Dependency injection
+- `app/api/exceptions.py` - Exception handlers
+- `app/schemas/api_schemas.py` - Pydantic models
+- `app/main.py` - FastAPI application
 
-- ✅**Testing:**
-    - `scripts/test_api.py` - Automated API tests
-    - 6/6 tests passed ✅
-    - Coverage: Health, Stats, Chat (RAG + System Questions)
+**Performance Improvements:**
+
+- Response Time: 14% faster (2650ms → 2270ms)
+- DB Queries: 80% کمتر (N queries → 1 query)
+- Concurrent Users: 10x بهتر (1 → 10+)
+
+**Testing:**
+
+- `scripts/test_api.py` - Automated API tests
+- 6/6 tests passed ✅
+- Coverage: Health, Stats, Chat (RAG + System Questions)
 
 #### ✅ **فاز 10: Frontend** 🆕
 
 - ✅ **React 18 + Vite:** Modern build tool
 - ✅ **Tailwind CSS:** Utility-first styling با theme سفارشی
 - ✅ **Components:**
-    - `ChatInterface` - Main chat container
-    - `Message` - با typing effect (slideIn animation)
-    - `InputBox` - با progress bar و gradient button
-    - `MessageActions` - Copy & Regenerate (edit mode)
+    - `ChatInterface` - Main chat container (بدون header، minimal design)
+    - `Message` - با Markdown support کامل و typing effect
+    - `InputBox` - با character counter (0/1000) و gradient send button
+    - `MessageActions` - دکمه‌های دایره‌ای با tooltip (Copy, Edit, Regenerate)
     - `SkeletonMessage` - Loading state
     - `ScrollToBottom` - Floating scroll button
+- ✅ **Markdown Rendering:**
+    - `react-markdown` + `remark-gfm` برای GitHub Flavored Markdown
+    - پشتیبانی کامل: **Bold**, _Italic_, ~~Strikethrough~~
+    - Code blocks با syntax highlighting و copy button
+    - Lists (bullet & numbered)
+    - Tables با border و hover effect
+    - Links (clickable با target="\_blank")
+    - Headings, Blockquotes, Horizontal Rules
 - ✅ **Custom Hooks:**
     - `useTypingEffect` - Character-by-character typing
 - ✅ **Features:**
     - ✅ RTL Support کامل (فارسی)
     - ✅ Responsive Design (موبایل + دسکتاپ)
     - ✅ Typing Effect با slideIn animation
-    - ✅ Copy to clipboard
-    - ✅ Regenerate با edit mode (همون پیام آپدیت میشه)
+    - ✅ Copy to clipboard با tooltip feedback
+    - ✅ Edit mode برای پیام‌های کاربر (inline editing)
+    - ✅ Regenerate با loading state
     - ✅ Scroll to bottom button (وقتی بالا رفتی)
     - ✅ Custom scrollbar (gradient، سمت راست)
     - ✅ Skeleton loading
-    - ✅ Empty state با example questions
+    - ✅ Empty state با example questions و لوگوی متا
     - ✅ Error handling
     - ✅ Auto-scroll
-    - ✅ Character counter (0/1000)
-    - ✅ Keyboard shortcuts (Enter/Shift+Enter)
+    - ✅ Character counter (0/1000) با warning states
+    - ✅ Keyboard shortcuts (Enter/Shift+Enter, Ctrl+Enter, ESC)
 
 **Styling:**
 
 - Light theme (سفید/خاکستری)
 - پیام کاربر: `#fff6d9` (زرد روشن)
 - پیام ربات: بدون background
-- Gradient buttons و icons
+- دکمه ارسال: `#ffc414` (زرد طلایی)
+- دکمه‌های action: دایره‌ای با hover effect (gray-200)
+- Tables: border-2 با hover effect روی rows
+- Code blocks: background مشکی با copy button
 - فونت: mikhak (local)
+
+**UI Improvements:**
+
+- ✅ حذف header (logo فقط در empty state)
+- ✅ دکمه‌های دایره‌ای با tooltip (peer/target pattern)
+- ✅ Edit mode با دکمه‌های Save/Cancel (مشکی/سفید)
+- ✅ Markdown tables با border کامل از همه جهات
+- ✅ Code blocks با language badge و copy button
+- ✅ Inline code با background خاکستری و رنگ قرمز
 
 **Structure:**
 
@@ -368,9 +393,9 @@ frontend/
 ├── src/
 │   ├── components/
 │   │   ├── ChatInterface.jsx
-│   │   ├── Message.jsx
-│   │   ├── MessageActions.jsx
-│   │   ├── InputBox.jsx
+│   │   ├── Message.jsx          # با Markdown support
+│   │   ├── MessageActions.jsx   # با Edit button
+│   │   ├── InputBox.jsx         # با counter و warning
 │   │   ├── SkeletonMessage.jsx
 │   │   └── ScrollToBottom.jsx
 │   ├── hooks/
@@ -383,6 +408,20 @@ frontend/
 ├── tailwind.config.js
 ├── vite.config.js
 └── package.json
+```
+
+**Dependencies:**
+
+```json
+{
+	"dependencies": {
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"axios": "^1.7.9",
+		"react-markdown": "^9.0.0",
+		"remark-gfm": "^4.0.0"
+	}
+}
 ```
 
 **Development:**
@@ -503,11 +542,11 @@ Meta/
 │   ├── app/
 │   │   ├── core/
 │   │   ├── db/
-│   │   ├── api/              # 🆕 API Layer
+│   │   ├── api/
 │   │   │   ├── routes.py
 │   │   │   ├── dependencies.py
 │   │   │   └── exceptions.py
-│   │   ├── schemas/          # 🆕 Pydantic Schemas
+│   │   ├── schemas/
 │   │   │   └── api_schemas.py
 │   │   ├── services/
 │   │   │   ├── retrieval/
@@ -516,7 +555,7 @@ Meta/
 │   │   └── utils/
 │   ├── data/
 │   └── main.py
-├── frontend/                 # 🆕 Frontend
+├── frontend/
 │   ├── src/
 │   │   ├── components/
 │   │   ├── hooks/
@@ -590,7 +629,7 @@ alembic upgrade head
 ## 📌 اطلاعات نسخه
 
 - **نسخه:** 1.0.0
-- **آخرین بروزرسانی:** 2026-02-16
+- **آخرین بروزرسانی:** 2026-02-19
 - **وضعیت:** فاز 10 تکمیل شد ✅
 - **مرحله بعدی:** فاز 7 - Caching & Optimization
 
