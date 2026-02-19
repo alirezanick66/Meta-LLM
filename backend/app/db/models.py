@@ -39,5 +39,11 @@ class Chunk( Base ):
 
     document = relationship( "Document", back_populates="chunks" )
 
+    # Composite indexes for better query performance
+    __table_args__ = (
+        Index( 'idx_document_chunk', 'document_id', 'chunk_index' ),
+        Index( 'idx_created_at', 'created_at' ),
+    )
+
     def __repr__( self ):
         return f"<Chunk(id={self.id}, chunk_index='{self.chunk_index}', tokens={self.token_count})>"

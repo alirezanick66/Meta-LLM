@@ -5,6 +5,7 @@ from rank_bm25 import BM25Okapi
 from backend.app.utils.custom_normalizer import persian_normalizer
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 import heapq
+import joblib
 
 
 class BM25Indexer:
@@ -34,7 +35,7 @@ class BM25Indexer:
         self.normalizer = persian_normalizer
         self.bm25_index: Optional[ BM25Okapi ] = None
         self.chunk_ids: List[ str ] = []
-        self.chunk_contents: List[ str ] = []
+        # Remove chunk_contents to save memory - fetch from DB when needed
 
         log_message( LG.Retrieval, f"BM25Indexer آماده شد - مسیر: {self.cache_dir}", LogLevel.INFO )
 
@@ -78,7 +79,6 @@ class BM25Indexer:
 
             # استخراج محتوا و chunk_ids
             self.chunk_ids = []
-            self.chunk_contents = []
             tokenized_corpus = []
 
             for chunk in chunks:
@@ -90,7 +90,6 @@ class BM25Indexer:
                     continue
 
                 self.chunk_ids.append( chunk_id )
-                self.chunk_contents.append( content )
 
                 # توکنایز و اضافه به corpus
                 tokens = self._tokenize( content )
@@ -115,16 +114,14 @@ class BM25Indexer:
             return False
 
     def _save_index( self ) -> bool:
-        """ذخیره index و mapping در دیسک"""
+        """ذخیره index و mapping در دیسک با فشرده‌سازی"""
         try:
-            # ذخیره BM25 index
-            with open( self.index_path, 'wb' ) as f:
-                pickle.dump( self.bm25_index, f )
+            # ذخیره BM25 index با joblib و compression
+            joblib.dump( self.bm25_index, self.index_path, compress=3 )
 
-            # ذخیره chunk mapping
-            mapping_data = { 'chunk_ids': self.chunk_ids, 'chunk_contents': self.chunk_contents }
-            with open( self.mapping_path, 'wb' ) as f:
-                pickle.dump( mapping_data, f )
+            # ذخیره فقط chunk_ids (نه محتوا - برای صرفه‌جویی حافظه)
+            mapping_data = { 'chunk_ids': self.chunk_ids }
+            joblib.dump( mapping_data, self.mapping_path, compress=3 )
 
             log_message( LG.Retrieval, f"✅ BM25 index ذخیره شد: {self.index_path}", LogLevel.DEBUG )
             return True
@@ -140,15 +137,12 @@ class BM25Indexer:
                 log_message( LG.Retrieval, "فایل‌های BM25 index وجود ندارند", LogLevel.WARNING )
                 return False
 
-            # بارگذاری BM25 index
-            with open( self.index_path, 'rb' ) as f:
-                self.bm25_index = pickle.load( f )
+            # بارگذاری BM25 index با joblib
+            self.bm25_index = joblib.load( self.index_path )
 
             # بارگذاری mapping
-            with open( self.mapping_path, 'rb' ) as f:
-                mapping_data = pickle.load( f )
-                self.chunk_ids = mapping_data[ 'chunk_ids' ]
-                self.chunk_contents = mapping_data[ 'chunk_contents' ]
+            mapping_data = joblib.load( self.mapping_path )
+            self.chunk_ids = mapping_data[ 'chunk_ids' ]
 
             log_message( LG.Retrieval, f"✅ BM25 index بارگذاری شد - {len(self.chunk_ids)} chunks", LogLevel.INFO )
             return True
@@ -160,13 +154,14 @@ class BM25Indexer:
     def search( self, query: str, top_k: int = 20 ) -> List[ Dict[ str, Any ] ]:
         """
         جستجوی BM25
-        
+
         Args:
             query: متن جستجو
             top_k: تعداد نتایج
-            
+
         Returns:
-            لیست نتایج با فرمت: [{'chunk_id': ..., 'score': ..., 'content': ...}, ...]
+            لیست نتایج با فرمت: [{'chunk_id': ..., 'score': ...}, ...]
+            Note: محتوا (content) اضافه نمیشود - باید از PostgreSQL دریافت شود
         """
         try:
             if self.bm25_index is None:
@@ -188,14 +183,13 @@ class BM25Indexer:
             # مرتب‌سازی و انتخاب top-k
             top_indices = heapq.nlargest( top_k, range( len( scores ) ), key=lambda i: scores[ i ] )
 
-            # ساخت نتایج
+            # ساخت نتایج (بدون content برای صرفه‌جویی حافظه)
             results = []
             for idx in top_indices:
                 if scores[ idx ] > 0:
                     results.append( {
                         'chunk_id': self.chunk_ids[ idx ],
-                        'score': float( scores[ idx ] ),
-                        'content': self.chunk_contents[ idx ]
+                        'score': float( scores[ idx ] )
                     } )
             return results
 
@@ -213,7 +207,6 @@ class BM25Indexer:
 
             self.bm25_index = None
             self.chunk_ids = []
-            self.chunk_contents = []
 
             log_message( LG.Retrieval, "✅ BM25 index حذف شد", LogLevel.INFO )
             return True

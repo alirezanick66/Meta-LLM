@@ -171,5 +171,15 @@ class PostgresManager:
         """تعداد کل اسناد"""
         return self.db.query( func.count( Document.id ) ).scalar()
 
-    def get_all_chunks( self ) -> List[ Chunk ]:
-        return self.db.query( Chunk ).all()
+    def get_all_chunks( self, limit: Optional[int] = None, offset: int = 0 ) -> List[ Chunk ]:
+        """
+        دریافت تمام chunks با پشتیبانی از pagination
+
+        Args:
+            limit: حداکثر تعداد chunks (None = همه)
+            offset: شروع از کدام chunk
+        """
+        query = self.db.query( Chunk )
+        if limit is not None:
+            query = query.limit( limit ).offset( offset )
+        return query.all()

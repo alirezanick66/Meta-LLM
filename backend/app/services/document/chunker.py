@@ -1,5 +1,5 @@
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from transformers import AutoTokenizer
 from langchain_text_splitters import RecursiveCharacterTextSplitter, MarkdownHeaderTextSplitter
 from backend.app.core.config import settings
@@ -7,11 +7,24 @@ from backend.app.utils.logging_config import log_message, LG, LogLevel
 from backend.app.services.tokenizer_service import tokenizer_service
 
 # ==========================================
-# توکنایزر BGE-M3
+# توکنایزر BGE-M3 با Lazy Loading
 # ==========================================
-log_message( LG.DataProcessing, "Initializing tokenizer for chunking...", LogLevel.INFO )
-tokenizer = AutoTokenizer.from_pretrained( settings.EMBEDDING_MODEL )
-log_message( LG.DataProcessing, "Tokenizer loaded.", LogLevel.INFO )
+_tokenizer: Optional[AutoTokenizer] = None
+
+def get_chunker_tokenizer() -> AutoTokenizer:
+    """Lazy load tokenizer for chunking"""
+    global _tokenizer
+    if _tokenizer is None:
+        log_message( LG.DataProcessing, "Initializing tokenizer for chunking...", LogLevel.INFO )
+        _tokenizer = AutoTokenizer.from_pretrained( settings.EMBEDDING_MODEL )
+        log_message( LG.DataProcessing, "Tokenizer loaded.", LogLevel.INFO )
+    return _tokenizer
+
+
+# ==========================================
+# Precompile regex patterns for performance
+# ==========================================
+HEADER_PATTERN = re.compile(r'^#{1,6}\s+', re.MULTILINE)
 
 
 # ==========================================
@@ -86,7 +99,7 @@ class MarkdownChunker:
 
             # اصلاح حلقه:
             for sub_text in sub_chunks:
-                clean_text = re.sub( r'^#{1,6}\s+', '', sub_text, flags=re.MULTILINE )
+                clean_text = HEADER_PATTERN.sub( '', sub_text )
                 final_content = clean_text
 
                 chunk_data = {

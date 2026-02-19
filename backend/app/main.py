@@ -12,6 +12,7 @@ from backend.app.utils.logging_config import log_message, LG, LogLevel
 # Import API routes و exception handlers
 from backend.app.api.routes import router as api_router
 from backend.app.api.exceptions import ( validation_exception_handler, database_exception_handler, general_exception_handler )
+from backend.app.api.middleware import TimeoutMiddleware, PerformanceLoggingMiddleware
 
 
 @asynccontextmanager
@@ -73,6 +74,13 @@ app.add_middleware(
     allow_methods=[ "*" ],
     allow_headers=[ "*" ],
 )
+
+# ==================== Performance & Timeout Middleware ====================
+# Add timeout middleware (60 seconds default)
+app.add_middleware(TimeoutMiddleware, timeout_seconds=60)
+
+# Add performance logging middleware
+app.add_middleware(PerformanceLoggingMiddleware)
 
 # ==================== Exception Handlers ====================
 app.exception_handler( RequestValidationError )( validation_exception_handler )
