@@ -23,8 +23,7 @@ def calculate_file_hash( file_path: str ) -> str:
                 sha256_hash.update( byte_block )
 
         file_hash = sha256_hash.hexdigest()
-        log_message( LG.DataProcessing, f"هش محاسبه شد برای {Path(file_path).name}: {file_hash[:16]}...",
-                     LogLevel.DEBUG )
+        log_message( LG.DataProcessing, f"هش محاسبه شد برای {Path(file_path).name}: {file_hash[:16]}...", LogLevel.DEBUG )
         return file_hash
 
     except Exception as e:

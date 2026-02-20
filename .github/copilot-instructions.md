@@ -15,9 +15,13 @@
 
 ## Comments & Documentation
 
-- Write all comments in Persian.
 - Only add comments for complex logic or public functions.
 - Use docstrings for all functions.
+
+## Agent & PR Rules
+
+- Never open a pull request or apply any code changes automatically.
+- Always wait for my explicit approval before taking any action.
 
 ## Project Overview
 
