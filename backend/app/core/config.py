@@ -14,7 +14,8 @@ class Settings( BaseSettings ):
     # ==================== API Keys ====================
     GEMINI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
-
+    # ==================== Document ====================
+    DOCUMENTS_DIR: str = "backend/data/documents"
     # ==================== PostgreSQL ====================
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432

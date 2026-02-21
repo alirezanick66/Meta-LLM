@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
 from backend.app.services.retrieval.hybrid_retriever import create_hybrid_retriever
-from backend.app.core.database import session_local
+from backend.app.core.database import SessionLocal
 from backend.app.db.postgres import PostgresManager
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
@@ -57,7 +57,7 @@ def test_retrieval():
             log_message( LG.Retrieval, "-" * 70, LogLevel.INFO )
 
             # ایجاد session برای دریافت content
-            db = session_local()
+            db = SessionLocal()
             pg_manager = PostgresManager( db )
 
             for rank, result in enumerate( results, start=1 ):

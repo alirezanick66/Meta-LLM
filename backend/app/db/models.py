@@ -1,5 +1,5 @@
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text, func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.core.database import Base
 
 
@@ -7,7 +7,7 @@ class Document( Base ):
     __tablename__ = "documents"
 
     #فیلدهای جدول
-    id = Column( Integer, primary_key=True, index=True )
+    id: Mapped[ int ] = mapped_column( Integer, primary_key=True, index=True )
     file_name = Column( String, unique=True, nullable=False, index=True )
     file_path = Column( Text, nullable=False )
     total_chunks = Column( Integer, nullable=False, default=0 )

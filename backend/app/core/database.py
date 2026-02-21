@@ -12,14 +12,14 @@ engine = create_engine(
     max_overflow=20,          #تعداد کانکشن های اضافی در صورت نیاز
 )
 #Session Factory
-session_local = sessionmaker( autocommit=False, autoflush=False, bind=engine )
+SessionLocal = sessionmaker( autocommit=False, autoflush=False, bind=engine )
 
 Base = declarative_base()
 
 
 def get_db():
     """ گرفتن دیتابیس با استفاده از سیشن"""
-    db = session_local()
+    db = SessionLocal()
     try:
         yield db
     finally:

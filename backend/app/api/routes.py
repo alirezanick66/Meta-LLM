@@ -1,12 +1,16 @@
 import time
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, status, Depends
-from fastapi.concurrency import run_in_threadpool
+from pathlib import Path
+from typing import Dict, Any
+
+from fastapi import APIRouter, HTTPException, status, Depends, BackgroundTasks, UploadFile, File
 from sqlalchemy.orm import Session
+
+from backend.app.core.database import get_db, SessionLocal
+from backend.app.core.config import settings
+from fastapi.concurrency import run_in_threadpool
 from backend.app.schemas.api_schemas import ( ChatRequest, ChatResponse, ChatMetadata, UsageInfo, Source, SystemStats,
                                               LLMProvider )
-from backend.app.core.database import get_db
-from backend.app.core.config import settings
 from backend.app.db.postgres import PostgresManager
 from backend.app.api.dependencies import get_hybrid_retriever, get_llm_orchestrator
 from backend.app.services.retrieval.hybrid_retriever import HybridRetriever
@@ -14,6 +18,10 @@ from backend.app.services.llm.llm_orchestrator import LLMOrchestrator
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 from backend.app.db.qdrant_client import get_qdrant_manager
 from backend.app.services.retrieval.bm25_indexer import BM25Indexer
+from backend.app.services.document.indexing_pipeline import IndexingPipeline
+from backend.app.services.document.indexing_pipeline import IndexingPipeline
+from backend.app.services.document.document_processor import SUPPORTED_EXTENSIONS
+import shutil
 
 # ==================== Router ====================
 router = APIRouter( prefix="/api", tags=[ "API" ] )
@@ -26,29 +34,19 @@ router = APIRouter( prefix="/api", tags=[ "API" ] )
               summary="ارسال سوال و دریافت پاسخ",
               description="Endpoint اصلی برای چت با سیستم RAG" )
 async def chat(
-        request: ChatRequest,
-        db: Session = Depends( get_db ),
-        retriever: HybridRetriever = Depends( get_hybrid_retriever ),          # ✅ Singleton
-        orchestrator: LLMOrchestrator = Depends( get_llm_orchestrator )          # ✅ Singleton
+    request: ChatRequest,
+    db: Session = Depends( get_db ),
+    retriever: HybridRetriever = Depends( get_hybrid_retriever ),
+    orchestrator: LLMOrchestrator = Depends( get_llm_orchestrator )
 ) -> ChatResponse:
-    """
-    پردازش سوال کاربر و تولید پاسخ هوشمند
-    
-    ✅ بهینه‌سازی‌ها:
-    - Dependency Injection برای سرویس‌های سنگین
-    - run_in_threadpool برای عملیات sync
-    - Bulk query برای دریافت chunks
-    """
-
+    """پردازش سوال کاربر و تولید پاسخ هوشمند"""
     start_time = time.time()
 
     try:
         log_message( LG.API, f"📩 درخواست جدید: '{request.query[:50]}...'", LogLevel.INFO )
 
-        # ==================== مرحله 1: Retrieval (Async-safe) ====================
+        # ==================== مرحله 1: Retrieval ====================
         log_message( LG.API, "🔍 مرحله 1: Retrieval...", LogLevel.DEBUG )
-
-        # ✅ اجرای sync function در threadpool
         chunks = await run_in_threadpool( retriever.retrieve, query=request.query, final_top_k=settings.RERANKER_TOP_K )
 
         if not chunks:
@@ -62,23 +60,17 @@ async def chat(
 
         log_message( LG.API, f"✅ {len(chunks)} chunk بازیابی شد", LogLevel.DEBUG )
 
-        # ==================== مرحله 2: دریافت Content (Optimized - Bulk Query) ====================
+        # ==================== مرحله 2: دریافت Content (Bulk Query) ====================
         pg_manager = PostgresManager( db )
-
-        # ✅ استخراج تمام chunk_ids
         chunk_ids = [ chunk[ 'chunk_id' ] for chunk in chunks ]
-
-        # ✅ یک کوئری برای همه (نه N کوئری!)
         contents_map = await run_in_threadpool( pg_manager.get_chunks_content_bulk, chunk_ids )
 
         # اتصال محتوا به chunks
         for chunk in chunks:
             chunk[ 'content' ] = contents_map.get( chunk[ 'chunk_id' ], "" )
 
-        # ==================== مرحله 3: LLM Generation (Async-safe) ====================
+        # ==================== مرحله 3: LLM Generation ====================
         log_message( LG.API, "🤖 مرحله 2: تولید پاسخ با LLM...", LogLevel.DEBUG )
-
-        # ✅ اجرای sync function در threadpool
         llm_response = await run_in_threadpool( orchestrator.generate_answer,
                                                 query=request.query,
                                                 chunks=chunks,
@@ -97,10 +89,8 @@ async def chat(
                                  error=llm_response.error or "خطای نامشخص در تولید پاسخ",
                                  timestamp=datetime.fromtimestamp( time.time() ) )
 
-        # تبدیل sources به فرمت Pydantic
         sources = [ Source( **src ) for src in llm_response.sources ]
 
-        # ساخت metadata
         metadata = ChatMetadata( provider=LLMProvider( llm_response.provider ) if llm_response.provider else LLMProvider.GROQ,
                                  model=llm_response.model or "unknown",
                                  usage=UsageInfo( prompt_tokens=llm_response.usage.get( 'prompt_tokens', 0 ),
@@ -121,55 +111,152 @@ async def chat(
     except Exception as e:
         log_message( LG.API, f"❌ خطای غیرمنتظره در chat endpoint: {str(e)}", LogLevel.ERROR )
 
-        # بررسی نوع خطا برای پیغام مناسب
+        error_msg = "خطای داخلی سرور."
         if "connection" in str( e ).lower():
             error_msg = "خطا در اتصال به سرویس‌ها. لطفاً بعداً تلاش کنید."
         elif "timeout" in str( e ).lower():
             error_msg = "زمان پردازش بیش از حد طولانی شد. لطفاً دوباره تلاش کنید."
-        else:
-            error_msg = "خطای داخلی سرور. لطفاً با پشتیبانی تماس بگیرید."
 
         raise HTTPException( status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg )
 
 
 # ==================== Stats Endpoint ====================
-@router.get( "/stats",
-             response_model=SystemStats,
-             status_code=status.HTTP_200_OK,
-             summary="دریافت آمار سیستم",
-             description="نمایش آمار کلی سیستم (تعداد اسناد، chunks و ...)" )
+@router.get( "/stats", response_model=SystemStats, status_code=status.HTTP_200_OK, summary="دریافت آمار سیستم" )
 async def get_stats( db: Session = Depends( get_db ) ) -> SystemStats:
-    """
-    دریافت آمار کلی سیستم
-    """
-
     try:
         log_message( LG.API, "📊 درخواست آمار سیستم", LogLevel.DEBUG )
-
         pg_manager = PostgresManager( db )
 
-        # ✅ اجرای موازی تمام queries در threadpool
-        def fetch_all_stats():
-            """دریافت تمام آمارها به صورت موازی"""
+        def fetch_all_stats() -> tuple:
             qdrant_manager = get_qdrant_manager()
             bm25_indexer = BM25Indexer()
-
             return ( qdrant_manager.get_collection_info(), bm25_indexer.get_stats(), pg_manager.get_total_documents_count(),
                      pg_manager.get_total_chunks_count() )
 
         qdrant_info, bm25_stats, total_docs, total_chunks = await run_in_threadpool( fetch_all_stats )
 
-        stats = SystemStats( total_documents=total_docs,
-                             total_chunks=total_chunks,
-                             qdrant_vectors=qdrant_info.get( 'vectors_count', 0 ),
-                             bm25_chunks=bm25_stats.get( 'total_chunks', 0 ),
-                             embedding_model=settings.EMBEDDING_MODEL,
-                             llm_primary=f"{settings.LLM_PRIMARY}: {settings.GROQ_MODEL}" )
-
-        log_message( LG.API, f"✅ آمار ارسال شد: {stats.total_documents} docs", LogLevel.DEBUG )
-
-        return stats
+        return SystemStats( total_documents=total_docs,
+                            total_chunks=total_chunks,
+                            qdrant_vectors=qdrant_info.get( 'vectors_count', 0 ),
+                            bm25_chunks=bm25_stats.get( 'total_chunks', 0 ),
+                            embedding_model=settings.EMBEDDING_MODEL,
+                            llm_primary=f"{settings.LLM_PRIMARY}: {settings.GROQ_MODEL}" )
 
     except Exception as e:
         log_message( LG.API, f"❌ خطا در دریافت آمار: {str(e)}", LogLevel.ERROR )
         raise HTTPException( status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="خطا در دریافت آمار سیستم" )
+
+
+# ==================== Upload Endpoint ====================
+@router.post(
+    "/documents/upload",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="آپلود و index کردن سند",
+    description="آپلود فایل .md یا .docx و شروع خودکار indexing",
+)
+async def upload_document(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: Session = Depends( get_db )          # این سشن فقط برای چک کردن سریع است، در بک‌گراند استفاده نمی‌شود
+) -> Dict[ str, Any ]:
+    """
+    آپلود فایل و indexing در background.
+    FIX: اصلاح نشت ارتباط دیتابیس در بک‌گراند.
+    """
+
+    if not file.filename:
+        raise HTTPException( status_code=status.HTTP_400_BAD_REQUEST, detail="نام فایل نامعتبر است" )
+
+    suffix = Path( file.filename ).suffix.lower()
+    if suffix not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"فرمت '{suffix}' پشتیبانی نمی‌شود. فرمت‌های مجاز: {list(SUPPORTED_EXTENSIONS.keys())}",
+        )
+
+    # پیشنهاد: استفاده از تنظیمات برای مسیر ذخیره‌سازی
+    documents_dir = Path( settings.DOCUMENTS_DIR if hasattr( settings, 'DOCUMENTS_DIR' ) else "backend/data/documents" )
+    documents_dir.mkdir( parents=True, exist_ok=True )
+    dest_path = documents_dir / file.filename
+
+    try:
+        with open( dest_path, "wb" ) as f:
+            shutil.copyfileobj( file.file, f )
+    except Exception as e:
+        raise HTTPException( status_code=500, detail=f"خطا در ذخیره فایل: {str(e)}" )
+
+    log_message( LG.API, f"📁 فایل '{file.filename}' ذخیره شد", LogLevel.INFO )
+
+    # ✅ اصلاح شده: مدیریت صحیح سشن دیتابیس در بک‌گراند
+    def run_indexing():
+        # ایجاد یک سشن کاملاً جدید و مستقل برای ترد بک‌گراند
+        # با استفاده از context manager مطمئن می‌شویم که سشن حتماً بسته می‌شود
+        with SessionLocal() as bg_db:
+            try:
+                pipeline = IndexingPipeline( bg_db )
+                result = pipeline.index_document( str( dest_path ) )
+                log_message( LG.API, f"✅ Indexing تکمیل شد: {result}", LogLevel.INFO )
+            except Exception as e:
+                log_message( LG.API, f"❌ شکست در Indexing بک‌گراند: {str(e)}", LogLevel.ERROR )
+
+    background_tasks.add_task( run_indexing )
+
+    return {
+        "success": True,
+        "message": f"فایل '{file.filename}' دریافت شد و در حال پردازش است",
+        "filename": file.filename,
+        "status": "processing",
+    }
+
+
+# ==================== Index Folder Endpoint ====================
+@router.post(
+    "/documents/index-folder",
+    status_code=status.HTTP_200_OK,
+    summary="index کردن کل پوشه documents",
+)
+async def index_folder() -> Dict[ str, Any ]:
+
+    folder_path = getattr( settings, 'DOCUMENTS_DIR', "backend/data/documents" )
+
+    def run():
+        with SessionLocal() as db:
+            pipeline = IndexingPipeline( db )
+            return pipeline.index_folder( folder_path )
+
+    result = await run_in_threadpool( run )
+    return {
+        "success": True,
+        "folder": folder_path,
+        "total_found": result[ 'total_found' ],
+        "succeeded": result[ 'succeeded' ],
+        "replaced": result[ 'replaced' ],
+        "skipped": result[ 'skipped' ],
+        "failed": result[ 'failed' ],
+        "details": result[ 'results' ],
+    }
+
+
+# ==================== List Documents Endpoint ====================
+@router.get(
+    "/documents",
+    status_code=status.HTTP_200_OK,
+    summary="لیست اسناد index شده",
+)
+async def list_documents( db: Session = Depends( get_db ) ) -> Dict[ str, Any ]:
+    """دریافت لیست همه اسناد index‌شده در سیستم"""
+    pg_manager = PostgresManager( db )
+    documents = await run_in_threadpool( pg_manager.get_all_documents )
+
+    return {
+        "success":
+        True,
+        "total":
+        len( documents ),
+        "documents": [ {
+            "id": doc.id,
+            "filename": doc.file_name,
+            "total_chunks": doc.total_chunks,
+            "indexed_at": doc.indexed_at.isoformat() if doc.indexed_at is not None else None,
+        } for doc in documents ],
+    }

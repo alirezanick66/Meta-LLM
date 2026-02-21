@@ -4,7 +4,7 @@ from pathlib import Path
 # اضافه کردن مسیر پروژه
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
-from backend.app.core.database import session_local
+from backend.app.core.database import SessionLocal
 from backend.app.services.document.indexing_pipeline import IndexingPipeline
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
@@ -20,7 +20,7 @@ def test_full_indexing():
     log_message( LG.DataProcessing, "=" * 70, LogLevel.INFO )
 
     # ایجاد session
-    db = session_local()
+    db = SessionLocal()
 
     try:
         # ایجاد pipeline
@@ -44,8 +44,7 @@ def test_full_indexing():
             log_message( LG.DataProcessing, "📊 آمار کلی سیستم:", LogLevel.INFO )
             log_message( LG.DataProcessing, f"   Documents: {stats['total_documents']}", LogLevel.INFO )
             log_message( LG.DataProcessing, f"   Chunks: {stats['total_chunks']}", LogLevel.INFO )
-            log_message( LG.DataProcessing, f"   Qdrant Vectors: {stats['qdrant_stats']['total_vectors']}",
-                         LogLevel.INFO )
+            log_message( LG.DataProcessing, f"   Qdrant Vectors: {stats['qdrant_stats']['total_vectors']}", LogLevel.INFO )
             log_message( LG.DataProcessing, f"   BM25 Chunks: {stats['bm25_stats']['total_chunks']}", LogLevel.INFO )
             log_message( LG.DataProcessing, "=" * 70, LogLevel.INFO )
 
