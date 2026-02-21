@@ -274,6 +274,15 @@ class IndexingPipeline:
         
         تغییر: پارامتر skip_bm25_rebuild اضافه شد.
         """
+        existing_by_hash = self.db.get_document_by_hash( file_hash )
+        if existing_by_hash and str( existing_by_hash.file_name ) != str( filename ):
+            log_message(
+                LG.DataProcessing,
+                f"⚠️ محتوای '{filename}' با '{existing_by_hash.file_name}' یکیه — skip",
+                LogLevel.WARNING,
+            )
+            return 'skipped', False
+
         existing = self.db.get_document_by_filename( filename )
 
         if not existing:
@@ -288,11 +297,7 @@ class IndexingPipeline:
             return 'skipped', False
 
         # فایل تغییر کرده → جایگزین کن
-        log_message(
-            LG.DataProcessing,
-            f"🔄 فایل '{filename}' تغییر کرده — جایگزین می‌شود",
-            LogLevel.INFO,
-        )
+        log_message( LG.DataProcessing, f"🔄 فایل '{filename}' تغییر کرده — جایگزین می‌شود", LogLevel.INFO )
 
         # تغییر در این خط: اگر در حالت Batch هستیم، rebuild_bm25 باید False باشد
         # (نقیض skip_bm25_rebuild)

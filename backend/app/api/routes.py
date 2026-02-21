@@ -260,3 +260,37 @@ async def list_documents( db: Session = Depends( get_db ) ) -> Dict[ str, Any ]:
             "indexed_at": doc.indexed_at.isoformat() if doc.indexed_at is not None else None,
         } for doc in documents ],
     }
+
+
+    # backend/app/api/routes.py
+@router.delete( "/documents/{document_id}" )
+async def delete_document( document_id: int ) -> Dict[ str, Any ]:
+
+    def run():
+        with SessionLocal() as db:
+            pipeline = IndexingPipeline( db )
+            pipeline._delete_document_data( document_id, rebuild_bm25=True )
+
+    await run_in_threadpool( run )
+    return { "success": True }
+
+
+@router.post( "/documents/bulk-delete" )
+async def bulk_delete( body: dict ) -> Dict[ str, Any ]:
+    ids = body.get( "ids", [] )
+
+    def run():
+        with SessionLocal() as db:
+            pipeline = IndexingPipeline( db )
+            pg_manager = PostgresManager( db )
+            for doc_id in ids:
+                pipeline._delete_document_data( doc_id, rebuild_bm25=False )
+            # یک بار BM25 rebuild در پایان
+            all_chunks = pg_manager.get_all_chunks()
+            if all_chunks:
+                pipeline.bm25_indexer.rebuild_from_database( all_chunks )
+            else:
+                pipeline.bm25_indexer.delete_index()
+
+    await run_in_threadpool( run )
+    return { "success": True, "deleted": len( ids ) }

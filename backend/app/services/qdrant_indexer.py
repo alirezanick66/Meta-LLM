@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 from pydantic import ValidationError
 from backend.app.db.qdrant_client import QdrantManager
-from backend.app.schema.chunk_schemas import ChunkMetadata
+from backend.app.schemas.chunk_schemas import ChunkMetadata
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 
@@ -79,9 +79,7 @@ class QdrantIndexer:
                 return False
 
             # ذخیره در Qdrant
-            success = self.qdrant.insert_vectors( chunk_ids=valid_ids,
-                                                  embeddings=valid_embeddings,
-                                                  metadata=valid_metadata )
+            success = self.qdrant.insert_vectors( chunk_ids=valid_ids, embeddings=valid_embeddings, metadata=valid_metadata )
 
             if success:
                 log_message( LG.Database, f"✅ {len(valid_ids)} chunk در Qdrant ذخیره شد", LogLevel.INFO )
