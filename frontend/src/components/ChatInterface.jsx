@@ -245,8 +245,7 @@ const ChatInterface = () => {
 			{/* Messages Area */}
 			<div
 				ref={messagesContainerRef}
-				className="flex-1 overflow-y-auto px-4 py-6 custom-scrollbar bg-white"
-			>
+				className="flex-1 overflow-y-auto px-4 py-6 custom-scrollbar bg-white">
 				<div className="max-w-4xl mx-auto">
 					{messages.length === 0 ? (
 						// Empty State
@@ -256,8 +255,7 @@ const ChatInterface = () => {
 								<div
 									className="relative w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 
                                     rounded-full flex items-center justify-center shadow-xl 
-                                    transform hover:scale-110 transition-transform duration-300"
-								>
+                                    transform hover:scale-110 transition-transform duration-300">
 									<span className="text-white text-5xl font-bold">
 										م
 									</span>
@@ -267,14 +265,13 @@ const ChatInterface = () => {
 							<h2 className="text-3xl font-bold mb-3">
 								<span
 									className="bg-gradient-to-l from-gray-800 via-gray-700 to-gray-800 
-                                    bg-clip-text text-transparent"
-								>
+                                    bg-clip-text text-transparent">
 									سلام! من متا هستم
 								</span>
 							</h2>
 
 							<p className="text-gray-600 mb-8 text-lg">
-								از من درباره انقلاب اسلامی و شهرسازی بپرسید
+								از من درباره انقلاب اسلامی بپرسید
 							</p>
 
 							<div className="mt-8 flex flex-col gap-2 items-center">
@@ -304,13 +301,11 @@ const ChatInterface = () => {
 											className="group relative overflow-hidden bg-white border-2 border-gray-200 
                                                 hover:border-green-400 hover:bg-green-50 p-4 rounded-2xl 
                                                 transition-all duration-300 shadow-sm hover:shadow-xl
-                                                transform hover:-translate-y-1 active:scale-95"
-										>
+                                                transform hover:-translate-y-1 active:scale-95">
 											<span
 												className="absolute inset-0 bg-gradient-to-r from-transparent via-white 
                                                 to-transparent opacity-0 group-hover:opacity-20 transform translate-x-[-100%] 
-                                                group-hover:translate-x-[100%] transition-transform duration-700"
-											></span>
+                                                group-hover:translate-x-[100%] transition-transform duration-700"></span>
 
 											<div className="relative">
 												<div className="text-2xl mb-2 group-hover:scale-110 transition-transform duration-300">

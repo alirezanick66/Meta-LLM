@@ -10,7 +10,8 @@ from backend.app.services.tokenizer_service import tokenizer_service
 # توکنایزر BGE-M3
 # ==========================================
 log_message( LG.DataProcessing, "Initializing tokenizer for chunking...", LogLevel.INFO )
-tokenizer = AutoTokenizer.from_pretrained( settings.EMBEDDING_MODEL )
+tokenizer = AutoTokenizer.from_pretrained( settings.EMBEDDING_MODEL_PATH,
+                                           trust_remote_code=True )          # اضافه کردن این پارامتر برای مدل‌های سفارشی)
 log_message( LG.DataProcessing, "Tokenizer loaded.", LogLevel.INFO )
 
 

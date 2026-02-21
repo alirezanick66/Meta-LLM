@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import MessageActions from "./MessageActions"
 import MarkdownRenderer from "./MarkdownRenderer"
 import { useTypingEffect } from "../hooks/useTypingEffect"
-
+import SourceCards from "./SourceCards"
 const Message = ({
 	message,
 	onRegenerate,
@@ -71,7 +71,7 @@ const Message = ({
 				editedContent.length,
 			)
 		}
-	}, [isEditing, editedContent.length])
+	}, [isEditing])
 
 	useEffect(() => {
 		if (isEditing && textareaRef.current) {
@@ -112,6 +112,7 @@ const Message = ({
 							onChange={(e) => setEditedContent(e.target.value)}
 							onKeyDown={handleKeyDown}
 							rows={1}
+							dir="rtl"
 							className="w-full text-sm md:text-base leading-7 px-4 py-3 rounded-2xl resize-none text-right bg-gray-100 text-gray-900 border border-transparent focus:outline-none focus:shadow-md transition-all duration-150 min-h-[52px]"
 						/>
 						<div className="flex items-center gap-3 mt-3">
@@ -155,6 +156,9 @@ const Message = ({
 						</span>
 					)}
 				</div>
+				{!isUser && message.sources?.length > 0 && !isTyping && (
+					<SourceCards sources={message.sources} /> // ← اضافه کن
+				)}
 				{!isTyping && (
 					<div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
 						<MessageActions

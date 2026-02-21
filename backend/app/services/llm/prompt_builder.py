@@ -140,6 +140,7 @@ class PromptBuilder:
                 "chunk_id": chunk.get( "chunk_id" ),
                 "source": metadata.get( "source", "Unknown" ),
                 "hierarchy": metadata.get( "hierarchy", "" ),
+                "content": content,          # ← اضافه کن
             } )
 
             # فرمت‌دهی متن چانک

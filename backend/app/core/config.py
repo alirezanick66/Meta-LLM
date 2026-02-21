@@ -42,14 +42,14 @@ class Settings( BaseSettings ):
     REDIS_CACHE_TTL: int = 3600
 
     # ==================== Embedding Models ====================
-    EMBEDDING_MODEL: str = "BAAI/bge-m3"
+    EMBEDDING_MODEL: str = "Alibaba-NLP/gte-multilingual-base"
     RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
     EMBEDDING_DEVICE: Literal[ "cpu", "cuda" ] = "cpu"
     EMBEDDING_BATCH_SIZE: int = 32
     EMBEDDING_MODEL_TOKEN: str = "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"
-    EMBEDDING_MODEL_PATH: str = "E:/A-Golchin program/Ai/Models/BAAIbge-m3"
-    EMBEDDING_VECTOR_DIM: int = 1024
-    CPU_THREADS: int = 4          #تعداد ترد های CPU برای پردازش embedding
+    EMBEDDING_MODEL_PATH: str = "E:\\A-Golchin program\\Ai\\Models\\gte-multilingual-base"
+    EMBEDDING_VECTOR_DIM: int = 768
+    CPU_THREADS: int = 16          #تعداد ترد های CPU برای پردازش embedding
 
     # ==================== Chunking ====================
     CHUNK_SIZE: int = 512

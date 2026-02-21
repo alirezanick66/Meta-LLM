@@ -44,6 +44,7 @@ class Source( BaseModel ):
     chunk_id: str = Field(..., description="شناسه chunk" )
     source: str = Field(..., description="نام فایل منبع" )
     hierarchy: str = Field(..., description="سلسله مراتب heading" )
+    content: Optional[ str ] = Field( None, description="متن chunk" )
 
 
 class UsageInfo( BaseModel ):

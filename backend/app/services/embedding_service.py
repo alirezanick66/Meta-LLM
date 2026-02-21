@@ -34,7 +34,8 @@ class EmbeddingService:
 
             self.model = SentenceTransformer( settings.EMBEDDING_MODEL_PATH,
                                               device=self.device,
-                                              token=settings.EMBEDDING_MODEL_TOKEN )
+                                              token=settings.EMBEDDING_MODEL_TOKEN,
+                                              trust_remote_code=True )
 
             # بهینه‌سازی برای CPU
             if self.device == "cpu":
@@ -189,10 +190,7 @@ class EmbeddingService:
         """بازگشت dimension مدل"""
         return self.vector_dim
 
-    def calculate_similarity( self,
-                              embedding1: np.ndarray,
-                              embedding2: np.ndarray,
-                              are_normalized: bool = True ) -> float:
+    def calculate_similarity( self, embedding1: np.ndarray, embedding2: np.ndarray, are_normalized: bool = True ) -> float:
         """
         محاسبه cosine similarity بین دو embedding
         
