@@ -7,8 +7,8 @@
 | **نام پروژه**      | Meta                                                           |
 | **هدف**            | سیستم پرسش و پاسخ هوشمند فارسی بر اساس مستندات شهرسازی و عمران |
 | **کاربران همزمان** | حداکثر 5 نفر (با قابلیت scale در آینده)                        |
-| **حجم داده**       | ~1000 صفحه Markdown (~3000-4000 chunks)                        |
-| **فرمت فایل‌ها**   | `.md` (Markdown)                                               |
+| **حجم داده**       | ~1000 صفحه (~3000-4000 chunks)                                 |
+| **فرمت فایل‌ها**   | `.md` (Markdown)، `.docx` (Word)                               |
 | **ساختار مستندات** | متنی با header hierarchy                                       |
 | **محیط استقرار**   | VPS                                                            |
 | **دسترسی کاربران** | همه کاربران به یک دیتابیس مشترک                                |
@@ -29,10 +29,10 @@
 
 ### **AI/ML Components:**
 
-- **Embedding Model:** BAAI/bge-m3 (1024-dim)
+- **Embedding Model:** Alibaba-NLP/gte-multilingual-base (768-dim) ← _(تغییر از bge-m3)_
 - **Device:** CPU با batch processing (batch_size: 32)
 - **CPU Threads:** 4 (قابل تنظیم)
-- **Tokenizer:** HooshvareLab/bert-fa-base-uncased (Persian) + BGE-M3 (Chunking)
+- **Tokenizer:** HooshvareLab/bert-fa-base-uncased (Persian) + gte-multilingual-base (Chunking)
 - **Reranker:** BAAI/bge-reranker-v2-m3 (فاز 5 - آماده)
 - **LLM Primary:** Groq API - llama-3.3-70b-versatile ✅
 - **LLM Fallback:** Gemini API - gemini-2.0-flash-exp ✅
@@ -44,9 +44,10 @@
 - **Build Tool:** Vite
 - **Styling:** Tailwind CSS
 - **HTTP Client:** Axios
+- **Routing:** React Router DOM
 - **State:** React Hooks
 - **Markdown:** react-markdown + remark-gfm
-- **UI Features:** Typing effect، Custom scrollbar، Skeleton loading، Markdown rendering
+- **UI Features:** Typing effect، Custom scrollbar، Skeleton loading، Markdown rendering، Source Cards، Admin Panel
 
 ### **DevOps:**
 
@@ -80,7 +81,7 @@
 ### **2. Chunking Strategy:**
 
 - **Type:** Recursive with Header Awareness (LangChain)
-- **Chunk Size:** 512 tokens (BGE-M3 tokenizer)
+- **Chunk Size:** 512 tokens (gte-multilingual-base tokenizer)
 - **Overlap:** 128 tokens (25%)
 - **Splitters:**
     - Markdown headers (`#`, `##`, `###`, `####`)
@@ -90,10 +91,21 @@
 **مزایا:**
 
 - حفظ context با header injection
-- سازگاری کامل با BGE-M3
+- سازگاری کامل با gte-multilingual-base
 - شناسایی لیست‌ها و ساختار
 
-**تعداد چانک واقعی:** 68 chunks برای فایل نمونه (34,772 کاراکتر)
+### **3. فرمت‌های پشتیبانی‌شده:**
+
+| فرمت                | Extractor         | ویژگی‌ها                                               |
+| ------------------- | ----------------- | ------------------------------------------------------ |
+| `.md` / `.markdown` | MarkdownExtractor | header hierarchy، list detection، front matter removal |
+| `.docx` / `.doc`    | WordExtractor     | Heading→Markdown، table extraction، textbox support    |
+
+**منطق Replace by Filename:**
+
+- اگر فایل با همان نام قبلاً index شده و hash یکسان باشد → skip
+- اگر hash تغییر کرده → حذف کامل و re-index
+- اگر محتوا با فایل دیگری یکسان باشد → skip با warning
 
 ---
 
@@ -124,7 +136,7 @@ Final Top-5 Documents
 │   Prompt Builder             │
 │  - Token counting (accurate) │
 │  - System Q detection        │
-│  - Source metadata           │
+│  - Source metadata + content │
 └──────────────────────────────┘
     ↓
 ┌──────────────────────────────┐
@@ -185,17 +197,28 @@ INDEX idx_chunks_chunk_index
 ### **Qdrant:**
 
 - **Collection:** meta_documents
-- **Vector Size:** 1024 (BGE-M3)
+- **Vector Size:** 768 (gte-multilingual-base) ← _(تغییر از 1024)_
 - **Distance:** COSINE
 - **Point ID:** SHA-256(chunk_id)[:8] → int
 - **Payload:** `{chunk_id, document_id, source, hierarchy, ...}`
 
 ### **BM25:**
 
-- **Storage:** `backend/data/storage/bm25/`
+- **Storage:** `backend/data/storage/bm25_cache/`
 - **Files:**
     - `bm25_index.pkl` - BM25Okapi object
     - `chunk_mapping.pkl` - {chunk_ids, chunk_contents}
+
+### **API Schemas:**
+
+```python
+class Source(BaseModel):
+    index: int
+    chunk_id: str
+    source: str        # نام فایل
+    hierarchy: str
+    content: Optional[str]  # متن chunk (برای Source Cards)
+```
 
 ---
 
@@ -234,25 +257,26 @@ INDEX idx_chunks_chunk_index
 #### ✅ **فاز 3: Document Processing**
 
 - MarkdownExtractor: استخراج و تمیزسازی
+- **WordExtractor: استخراج از .docx با Heading→Markdown، جداول، textbox** 🆕
+- **DocumentProcessor: یکپارچه‌سازی multi-format با scan_folder** 🆕
 - PersianNormalizer: نرمال‌سازی پیشرفته (بدون Hazm)
 - MarkdownChunker: LangChain-based با header awareness
 - File hashing (SHA-256) برای duplicate detection
+- **Replace-by-filename logic: skip/replace بر اساس hash** 🆕
 
 #### ✅ **فاز 4: Embedding & Indexing**
 
-- EmbeddingService: BGE-M3 با CPU optimization
+- EmbeddingService: **gte-multilingual-base** با CPU optimization ← _(تغییر از bge-m3)_
 - QdrantIndexer: ذخیره vectors با Pydantic validation
 - BM25Indexer: keyword indexing با rebuild قابلیت
 - IndexingPipeline: orchestrator کامل با rollback
+- **بهینه‌سازی Batch: skip_bm25_rebuild برای پردازش پوشه (BM25 یک‌بار در پایان)** 🆕
 
-**آمار تست موفق:**
+**مزایای تغییر مدل:**
 
-- ✅ Document: enghelab.md
-- ✅ Chunks: 68
-- ✅ Tokens: 10,498
-- ✅ Qdrant Vectors: 68
-- ✅ BM25 Index: 68 chunks
-- ⏱️ زمان اجرا: ~3 دقیقه
+- حجم: 305M (در مقابل 570M قبلی)
+- سرعت: ~2x سریع‌تر روی CPU
+- ابعاد vector: 768 (در مقابل 1024 قبلی)
 
 #### ✅ **فاز 5: Retrieval System**
 
@@ -277,94 +301,47 @@ INDEX idx_chunks_chunk_index
 #### ✅ **فاز 6: LLM Integration**
 
 - ✅ **TokenizerService:** Singleton با lazy loading
-- ✅ **PromptBuilder:** ساخت prompt بهینه با token counting
+- ✅ **PromptBuilder:** ساخت prompt بهینه با token counting + **ارسال content به sources** 🆕
 - ✅ **GroqClient:** Groq API - llama-3.3-70b-versatile
 - ✅ **GeminiClient:** Gemini API fallback - gemini-2.0-flash-exp
 - ✅ **LLMOrchestrator:** مدیریت Primary/Fallback با metadata کامل
 
-**Features:**
-
-- Lazy tokenizer loading
-- System question detection
-- Accurate token counting
-- Source tracking
-- Error recovery
-
-#### ✅ **فاز 9: API Layer** 🆕
+#### ✅ **فاز 9: API Layer**
 
 - ✅ **FastAPI Application:** با lifespan management و CORS
 - ✅ **Pydantic Schemas:** Request/Response validation
-    - Enums (LLMProvider, HealthStatus)
-    - computed_field برای total_tokens
-    - Pydantic V2 syntax
 - ✅ **API Endpoints:**
     - `POST /api/chat` - RAG pipeline endpoint
     - `GET /api/stats` - آمار سیستم
     - `GET /health` - Health check با metrics
     - `GET /` - API documentation
+    - **`DELETE /api/documents/{document_id}` - حذف یک سند** 🆕
+    - **`POST /api/documents/bulk-delete` - حذف دسته‌ای با یک BM25 rebuild** 🆕
 - ✅ **Exception Handling:** با traceback و type-based handling
 - ✅ **Dependency Injection:** Singleton pattern برای services
-- ✅ **Performance Optimization:**
-    - `run_in_threadpool` برای async-safe operations
-    - Bulk database queries (N+1 حل شد)
-    - Memory optimization با Singleton
+- ✅ **Security:** path traversal protection با `Path(filename).name`
 
-**Components:**
-
-- `app/api/routes.py` - API endpoints
-- `app/api/dependencies.py` - Dependency injection
-- `app/api/exceptions.py` - Exception handlers
-- `app/schemas/api_schemas.py` - Pydantic models
-- `app/main.py` - FastAPI application
-
-**Performance Improvements:**
-
-- Response Time: 14% faster (2650ms → 2270ms)
-- DB Queries: 80% کمتر (N queries → 1 query)
-- Concurrent Users: 10x بهتر (1 → 10+)
-
-**Testing:**
-
-- `scripts/test_api.py` - Automated API tests
-- 6/6 tests passed ✅
-- Coverage: Health, Stats, Chat (RAG + System Questions)
-
-#### ✅ **فاز 10: Frontend** 🆕
+#### ✅ **فاز 10: Frontend**
 
 - ✅ **React 18 + Vite:** Modern build tool
+- ✅ **React Router DOM:** مسیریابی `/` و `/admin`
 - ✅ **Tailwind CSS:** Utility-first styling با theme سفارشی
 - ✅ **Components:**
-    - `ChatInterface` - Main chat container (بدون header، minimal design)
-    - `Message` - با Markdown support کامل و typing effect
-    - `InputBox` - با character counter (0/1000) و gradient send button
-    - `MessageActions` - دکمه‌های دایره‌ای با tooltip (Copy, Edit, Regenerate)
+    - `ChatInterface` - Main chat container
+    - `Message` - با Markdown support و typing effect
+    - `InputBox` - با character counter و send button
+    - `MessageActions` - دکمه‌های Copy، Edit، Regenerate
     - `SkeletonMessage` - Loading state
     - `ScrollToBottom` - Floating scroll button
-- ✅ **Markdown Rendering:**
-    - `react-markdown` + `remark-gfm` برای GitHub Flavored Markdown
-    - پشتیبانی کامل: **Bold**, _Italic_, ~~Strikethrough~~
-    - Code blocks با syntax highlighting و copy button
-    - Lists (bullet & numbered)
-    - Tables با border و hover effect
-    - Links (clickable با target="\_blank")
-    - Headings, Blockquotes, Horizontal Rules
-- ✅ **Custom Hooks:**
-    - `useTypingEffect` - Character-by-character typing
-- ✅ **Features:**
-    - ✅ RTL Support کامل (فارسی)
-    - ✅ Responsive Design (موبایل + دسکتاپ)
-    - ✅ Typing Effect با slideIn animation
-    - ✅ Copy to clipboard با tooltip feedback
-    - ✅ Edit mode برای پیام‌های کاربر (inline editing)
-    - ✅ Regenerate با loading state
-    - ✅ Scroll to bottom button (وقتی بالا رفتی)
-    - ✅ Custom scrollbar (gradient، سمت راست)
-    - ✅ Skeleton loading
-    - ✅ Empty state با example questions و لوگوی متا
-    - ✅ Error handling
-    - ✅ Auto-scroll
-    - ✅ Character counter (0/1000) با warning states
-    - ✅ Keyboard shortcuts (Enter/Shift+Enter, Ctrl+Enter, ESC)
+    - **`SourceCards` - نمایش منابع collapsible بعد از پایان typing** 🆕
+    - **`SourceModal` - modal متن کامل chunk با نام فایل درست** 🆕
+- ✅ **Admin Panel:** 🆕
+    - `AdminPage` - صفحه مدیریت
+    - `AdminLogin` - احراز هویت با password
+    - `StatsCard` - نمایش آمار سیستم
+    - `DocumentList` - لیست اسناد با multi-select delete
+    - `UploadZone` - drag & drop upload با progress
+    - دسترسی: URL مستقیم `/admin` یا 5 کلیک روی لوگو
 
 **Styling:**
 
@@ -372,19 +349,6 @@ INDEX idx_chunks_chunk_index
 - پیام کاربر: `#fff6d9` (زرد روشن)
 - پیام ربات: بدون background
 - دکمه ارسال: `#ffc414` (زرد طلایی)
-- دکمه‌های action: دایره‌ای با hover effect (gray-200)
-- Tables: border-2 با hover effect روی rows
-- Code blocks: background مشکی با copy button
-- فونت: mikhak (local)
-
-**UI Improvements:**
-
-- ✅ حذف header (logo فقط در empty state)
-- ✅ دکمه‌های دایره‌ای با tooltip (peer/target pattern)
-- ✅ Edit mode با دکمه‌های Save/Cancel (مشکی/سفید)
-- ✅ Markdown tables با border کامل از همه جهات
-- ✅ Code blocks با language badge و copy button
-- ✅ Inline code با background خاکستری و رنگ قرمز
 
 **Structure:**
 
@@ -393,15 +357,26 @@ frontend/
 ├── src/
 │   ├── components/
 │   │   ├── ChatInterface.jsx
-│   │   ├── Message.jsx          # با Markdown support
-│   │   ├── MessageActions.jsx   # با Edit button
-│   │   ├── InputBox.jsx         # با counter و warning
+│   │   ├── Message.jsx
+│   │   ├── MessageActions.jsx
+│   │   ├── InputBox.jsx
 │   │   ├── SkeletonMessage.jsx
-│   │   └── ScrollToBottom.jsx
+│   │   ├── ScrollToBottom.jsx
+│   │   ├── SourceCards.jsx       # 🆕
+│   │   ├── SourceModal.jsx       # 🆕
+│   │   └── admin/                # 🆕
+│   │       ├── AdminLogin.jsx
+│   │       ├── StatsCard.jsx
+│   │       ├── DocumentList.jsx
+│   │       └── UploadZone.jsx
 │   ├── hooks/
 │   │   └── useTypingEffect.js
+│   ├── pages/                    # 🆕
+│   │   ├── ChatPage.jsx
+│   │   └── AdminPage.jsx
 │   ├── services/
-│   │   └── api.js
+│   │   ├── api.js
+│   │   └── adminApi.js           # 🆕
 │   ├── index.css
 │   └── main.jsx
 ├── index.html
@@ -417,19 +392,12 @@ frontend/
 	"dependencies": {
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
+		"react-router-dom": "^6.x",
 		"axios": "^1.7.9",
 		"react-markdown": "^9.0.0",
 		"remark-gfm": "^4.0.0"
 	}
 }
-```
-
-**Development:**
-
-```bash
-cd frontend
-npm install
-npm run dev  # http://localhost:3000
 ```
 
 ### 🔵 **فازهای بعدی:**
@@ -451,10 +419,11 @@ npm run dev  # http://localhost:3000
 #### 🟡 **فاز 11: Advanced Features**
 
 - ⬜ Sidebar + Chat history
-- ⬜ Source cards با modal
 - ⬜ Settings panel
 - ⬜ Dark/Light mode toggle
 - ⬜ Voice input
+- ⬜ PDF support (text-based)
+- ⬜ Streaming responses
 
 #### 🟢 **فاز 12: Deployment**
 
@@ -552,13 +521,20 @@ Meta/
 │   │   │   ├── retrieval/
 │   │   │   ├── llm/
 │   │   │   └── document/
+│   │   │       ├── document_processor.py
+│   │   │       ├── indexing_pipeline.py
+│   │   │       ├── chunker.py
+│   │   │       ├── markdown_extractor.py
+│   │   │       └── word_extractor.py
 │   │   └── utils/
 │   ├── data/
 │   └── main.py
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
+│   │   │   └── admin/
 │   │   ├── hooks/
+│   │   ├── pages/
 │   │   ├── services/
 │   │   └── index.css
 │   ├── index.html
@@ -618,6 +594,15 @@ docker-compose up -d
 alembic upgrade head
 ```
 
+### **6. مشکل dimension مغایرت Qdrant بعد از تغییر مدل embedding:** 🆕
+
+```bash
+# حذف collection قدیمی و ساخت مجدد
+# (از طریق Qdrant dashboard یا API)
+curl -X DELETE http://localhost:6333/collections/meta_documents
+# سپس re-index همه اسناد
+```
+
 ---
 
 ## 📄 License
@@ -628,10 +613,10 @@ alembic upgrade head
 
 ## 📌 اطلاعات نسخه
 
-- **نسخه:** 1.0.0
-- **آخرین بروزرسانی:** 2026-02-19
-- **وضعیت:** فاز 10 تکمیل شد ✅
-- **مرحله بعدی:** فاز 7 - Caching & Optimization
+- **نسخه:** 1.1.0
+- **آخرین بروزرسانی:** 2026-02-21
+- **وضعیت:** فاز 10 تکمیل شد (با بهبودهای Phase 1) ✅
+- **مرحله بعدی:** فاز 7 - Caching & Optimization یا فاز 11 - Advanced Features
 
 ---
 
