@@ -10,8 +10,8 @@ from typing import List, Dict, Any
 # اضافه کردن مسیر پروژه
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
-from backend.app.services.retrieval.hybrid_retriever import create_hybrid_retriever
-from backend.app.services.llm.llm_orchestrator import create_llm_orchestrator, LLMResponse
+from backend.app.api.dependencies import get_hybrid_retriever, get_llm_orchestrator
+from backend.app.services.llm.llm_orchestrator import LLMResponse
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 # ==================== Constants ====================
@@ -89,8 +89,8 @@ def test_rag_pipeline():
 
     # ==================== Setup ====================
     try:
-        retriever = create_hybrid_retriever( bm25_top_k=20, vector_top_k=20, final_top_k=5 )
-        orchestrator = create_llm_orchestrator( max_context_tokens=3000, use_fallback=True )
+        retriever = get_hybrid_retriever( bm25_top_k=20, vector_top_k=20, final_top_k=5 )
+        orchestrator = get_llm_orchestrator( max_context_tokens=3000, use_fallback=True )
         log_message( LG.LLM, "✅ کامپوننت‌ها آماده شدند", LogLevel.INFO )
     except Exception as e:
         log_message( LG.LLM, f"❌ خطا در Setup: {e}", LogLevel.ERROR )

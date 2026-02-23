@@ -4,7 +4,7 @@ from pathlib import Path
 # اضافه کردن مسیر پروژه
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
-from backend.app.services.retrieval.hybrid_retriever import create_hybrid_retriever
+from backend.app.api.dependencies import get_hybrid_retriever
 from backend.app.core.database import SessionLocal
 from backend.app.db.postgres import PostgresManager
 from backend.app.utils.logging_config import log_message, LG, LogLevel
@@ -21,7 +21,7 @@ def test_retrieval():
 
     # ساخت Hybrid Retriever
     try:
-        retriever = create_hybrid_retriever( bm25_top_k=20, vector_top_k=20, final_top_k=10, rrf_k=60 )
+        retriever = get_hybrid_retriever( bm25_top_k=20, vector_top_k=20, final_top_k=10, rrf_k=60 )
         log_message( LG.Retrieval, "✅ HybridRetriever ساخته شد", LogLevel.INFO )
     except Exception as e:
         log_message( LG.Retrieval, f"❌ خطا در ساخت Retriever: {str(e)}", LogLevel.ERROR )

@@ -9,10 +9,11 @@ from sqlalchemy.orm import Session
 from backend.app.core.database import get_db, SessionLocal
 from backend.app.core.config import settings
 from fastapi.concurrency import run_in_threadpool
-from backend.app.schemas.api_schemas import ( ChatRequest, ChatResponse, ChatMetadata, UsageInfo, Source, SystemStats,
-                                              LLMProvider )
 from backend.app.db.postgres import PostgresManager
 from backend.app.api.dependencies import get_hybrid_retriever, get_llm_orchestrator, get_qdrant_manager, get_bm25_indexer
+from backend.app.schemas.api_schemas import SystemStats, UsageInfo
+from backend.app.schemas.base_schemas import LLMProvider
+from backend.app.schemas.chat_schemas import ChatMetadata, ChatRequest, ChatResponse, Source
 from backend.app.services.retrieval.hybrid_retriever import HybridRetriever
 from backend.app.services.llm.llm_orchestrator import LLMOrchestrator
 from backend.app.utils.logging_config import log_message, LG, LogLevel
@@ -87,7 +88,15 @@ async def chat(
                                  error=llm_response.error or "خطای نامشخص در تولید پاسخ",
                                  timestamp=datetime.fromtimestamp( time.time() ) )
 
-        sources = [ Source( **src ) for src in llm_response.sources ]
+        sources = [
+            Source(
+                index=src.index,
+                chunk_id=src.chunk_id or "",
+                source=src.source,
+                hierarchy=src.hierarchy,
+                content=src.content,
+            ) for src in llm_response.sources
+        ]
 
         metadata = ChatMetadata( provider=LLMProvider( llm_response.provider ) if llm_response.provider else LLMProvider.GROQ,
                                  model=llm_response.model or "unknown",

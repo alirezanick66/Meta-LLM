@@ -1,16 +1,9 @@
-from typing import Optional, Dict, List, TypedDict
+from typing import Optional, List
 from groq import APIError, Groq
 from groq.types.chat import ChatCompletionMessageParam
 from backend.app.core.config import settings
 from backend.app.utils.logging_config import log_message, LG, LogLevel
-
-
-class LLMResponse( TypedDict ):
-    success: bool
-    content: Optional[ str ]
-    model: str
-    usage: Dict[ str, int ]
-    error: Optional[ str ]
+from backend.app.schemas.llm_schemas import ProviderLLMResponse
 
 
 class GroqClient:
@@ -35,7 +28,7 @@ class GroqClient:
     def _execute_request( self,
                           messages: List[ ChatCompletionMessageParam ],
                           temperature: Optional[ float ] = None,
-                          max_tokens: Optional[ int ] = None ) -> LLMResponse:
+                          max_tokens: Optional[ int ] = None ) -> ProviderLLMResponse:
         """
        ‫ هسته مرکزی برای مدیریت تمام درخواست‌ها و خطاها (Internal Only)
         """
@@ -60,7 +53,7 @@ class GroqClient:
 
             content = response.choices[ 0 ].message.content
 
-            return LLMResponse( success=True, content=content, model=self.model, usage=usage, error=None )
+            return ProviderLLMResponse( success=True, content=content, model=self.model, usage=usage, error=None )
 
         except APIError as e:          # ‫خطاهای اختصاصی Groq
             error_msg = f"Groq API Error: {e.message}"
@@ -72,25 +65,25 @@ class GroqClient:
             log_message( LG.LLM, f"❌ {error_msg}", LogLevel.ERROR )
             return self._create_error_result( error_msg )
 
-    def _create_error_result( self, error_msg: str ) -> LLMResponse:
+    def _create_error_result( self, error_msg: str ) -> ProviderLLMResponse:
         """کمک به یکپارچگی خروجی‌های خطا"""
-        return LLMResponse( success=False,
-                            content=None,
-                            model=self.model,
-                            usage={
-                                "prompt_tokens": 0,
-                                "completion_tokens": 0,
-                                "total_tokens": 0
-                            },
-                            error=error_msg )
+        return ProviderLLMResponse( success=False,
+                                    content=None,
+                                    model=self.model,
+                                    usage={
+                                        "prompt_tokens": 0,
+                                        "completion_tokens": 0,
+                                        "total_tokens": 0
+                                    },
+                                    error=error_msg )
 
-    def generate( self, prompt: str, **kwargs ) -> LLMResponse:
+    def generate( self, prompt: str, **kwargs ) -> ProviderLLMResponse:
         """تولید پاسخ برای یک پرامپت تکی"""
         log_message( LG.LLM, f"🤖 ارسال Single Prompt به {self.model}...", LogLevel.INFO )
         messages: List[ ChatCompletionMessageParam ] = [ { "role": "user", "content": prompt } ]
         return self._execute_request( messages, **kwargs )
 
-    def chat( self, messages: List[ ChatCompletionMessageParam ], **kwargs ) -> LLMResponse:
+    def chat( self, messages: List[ ChatCompletionMessageParam ], **kwargs ) -> ProviderLLMResponse:
         """چت چند نوبتی با تاریخچه"""
         log_message( LG.LLM, f"💬 ارسال Chat Context ({len(messages)} پیام)...", LogLevel.INFO )
         return self._execute_request( messages, **kwargs )

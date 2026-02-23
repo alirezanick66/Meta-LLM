@@ -1,18 +1,7 @@
 from typing import List, Dict, Any, Tuple, Optional
-from dataclasses import dataclass
 import re
+from backend.app.schemas.llm_schemas import PromptResult
 from backend.app.utils.logging_config import log_message, LG, LogLevel
-
-
-# ==================== Data Classes ====================
-@dataclass( slots=True, frozen=True )
-class PromptResult:
-    """نتیجه نهایی ساخت پرامپت"""
-    system_prompt: str
-    user_prompt: str
-    sources_used: List[ Dict[ str, Any ] ]
-    total_tokens: int
-    is_system_question: bool
 
 
 # ==================== Prompt Builder ====================

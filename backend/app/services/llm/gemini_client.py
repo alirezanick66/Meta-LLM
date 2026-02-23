@@ -1,17 +1,9 @@
-from typing import Optional, Dict, List, TypedDict, Any
+from typing import Optional, Dict, List, Any
 from google import genai
 from google.genai import types
 from backend.app.core.config import settings
 from backend.app.utils.logging_config import log_message, LG, LogLevel
-
-
-class LLMResponse( TypedDict ):
-    success: bool
-    content: Optional[ str ]
-    model: str
-    usage: Dict[ str, int ]
-    error: Optional[ str ]
-    finish_reason: Optional[ str ]
+from backend.app.schemas.llm_schemas import ProviderLLMResponse
 
 
 class GeminiClient:
@@ -55,19 +47,19 @@ class GeminiClient:
         except AttributeError:
             return { "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0 }
 
-    def _create_error_result( self, error_msg: str, finish_reason: str = "ERROR" ) -> LLMResponse:
-        return LLMResponse( success=False,
-                            content=None,
-                            model=self.model_name,
-                            usage={
-                                "prompt_tokens": 0,
-                                "completion_tokens": 0,
-                                "total_tokens": 0
-                            },
-                            error=error_msg,
-                            finish_reason=finish_reason )
+    def _create_error_result( self, error_msg: str, finish_reason: str = "ERROR" ) -> ProviderLLMResponse:
+        return ProviderLLMResponse( success=False,
+                                    content=None,
+                                    model=self.model_name,
+                                    usage={
+                                        "prompt_tokens": 0,
+                                        "completion_tokens": 0,
+                                        "total_tokens": 0
+                                    },
+                                    error=error_msg,
+                                    finish_reason=finish_reason )
 
-    def _check_safety_and_content( self, response: Any ) -> LLMResponse:
+    def _check_safety_and_content( self, response: Any ) -> ProviderLLMResponse:
         """
 بررسی وضعیت فیلترهای ایمنی و استخراج محتوا  
 """
@@ -93,12 +85,12 @@ class GeminiClient:
         # استخراج متن
         try:
             content = candidate.content.parts[ 0 ].text
-            return LLMResponse( success=True,
-                                content=content,
-                                model=self.model_name,
-                                usage=self._extract_usage( response ),
-                                error=None,
-                                finish_reason=finish_reason )
+            return ProviderLLMResponse( success=True,
+                                        content=content,
+                                        model=self.model_name,
+                                        usage=self._extract_usage( response ),
+                                        error=None,
+                                        finish_reason=finish_reason )
         except ( IndexError, AttributeError ) as e:
             return self._create_error_result( "ساختار پاسخ نامعتبر است.", finish_reason="INVALID_STRUCTURE" )
 
@@ -107,7 +99,7 @@ class GeminiClient:
         prompt: str,
         temperature: Optional[ float ] = None,
         max_tokens: Optional[ int ] = None,
-    ) -> LLMResponse:
+    ) -> ProviderLLMResponse:
         """
 تولید پاسخ برای یک پرامپت تکی
 """
@@ -130,7 +122,7 @@ class GeminiClient:
     def chat( self,
               messages: List[ Dict[ str, str ] ],
               temperature: Optional[ float ] = None,
-              max_tokens: Optional[ int ] = None ) -> LLMResponse:
+              max_tokens: Optional[ int ] = None ) -> ProviderLLMResponse:
         """
         ‫ چت چند نوبتی با پشتیبانی از system_instruction
         """
