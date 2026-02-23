@@ -8,7 +8,7 @@ from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 class QdrantManager:
     """
-    مدیریت عملیات Qdrant Vector Store
+   ‫ مدیریت عملیات Qdrant Vector Store
     """
 
     def __init__( self ):
@@ -19,8 +19,7 @@ class QdrantManager:
 
     def _connect( self ):
         """
-        اتصال به Qdrant 
-        
+       ‫ اتصال به Qdrant 
         """
         try:
             log_message( LG.Database, f"تلاش برای اتصال به Qdrant...", LogLevel.INFO )
@@ -40,7 +39,7 @@ class QdrantManager:
 
     @staticmethod
     def _generate_point_id( chunk_id: str ) -> int:
-        """تبدیل chunk_id به یک عدد یکتا بدون collision"""
+        """ ‫تبدیل chunk_id به یک عدد یکتا بدون collision"""
         hash_bytes = hashlib.sha256( chunk_id.encode() ).digest()[ :8 ]
         return int.from_bytes( hash_bytes, byteorder='big' )
 
@@ -49,7 +48,7 @@ class QdrantManager:
         try:
 
             if self.client is not None:          #اگه اتصال برقرار شده بود
-                collections = self.client.get_collections().collections          #لیست کالکشن های موجود در Qdrant
+                collections = self.client.get_collections().collections          #لیست کالکشن های موجود در ‫ Qdrant
                 collection_names = [ col.name for col in collections ]
 
                 if self.collection_name not in collection_names:          #اگه کالکشن وجود نداشت، ایجادش کن
@@ -57,7 +56,7 @@ class QdrantManager:
                         collection_name=self.collection_name,
                         vectors_config=VectorParams(
                             size=self.vector_size,
-                            distance=Distance.COSINE          # استفاده از cosine similarity
+                            distance=Distance.COSINE          #‫ استفاده از cosine similarity
                         ) )
                     log_message( LG.Database, f"کالکشن '{self.collection_name}' ایجاد شد", LogLevel.INFO )
                 else:
@@ -69,7 +68,7 @@ class QdrantManager:
     def insert_vectors( self, chunk_ids: List[ str ], embeddings: List[ List[ float ] ],
                         metadata: List[ Dict[ str, Any ] ] ) -> bool:
         """
-         درج دسته‌جمعی vectors
+        ‫ درج دسته‌جمعی vectors
             """
         if self.client is None:
             log_message( LG.Database, "❌ Qdrant client اتصال برقرار نشده است", LogLevel.ERROR )
@@ -97,7 +96,7 @@ class QdrantManager:
                         top_k: int = 20,
                         document_id: Optional[ int ] = None ) -> List[ Dict[ str, Any ] ]:
         """
-            جستجوی semantic با vector
+           ‫ جستجوی semantic با vector
             
             Args:
                 query_vector: embedding سوال
@@ -109,8 +108,7 @@ class QdrantManager:
         try:
             query_filter = None
             if document_id:
-                query_filter = Filter(
-                    must=[ FieldCondition( key="document_id", match=MatchValue( value=document_id ) ) ] )
+                query_filter = Filter( must=[ FieldCondition( key="document_id", match=MatchValue( value=document_id ) ) ] )
 
             results = self.client.query_points(
                 collection_name=self.collection_name,
@@ -137,12 +135,11 @@ class QdrantManager:
             return []
 
     def delete_by_document( self, document_id: int ) -> bool:
-        """حذف تمام vectors مربوط به یک document"""
+        """ ‫حذف تمام vectors مربوط به یک document"""
         try:
             self.client.delete(          # type: ignore
                 collection_name=self.collection_name,
-                points_selector=Filter(
-                    must=[ FieldCondition( key="document_id", match=MatchValue( value=document_id ) ) ] ) )
+                points_selector=Filter( must=[ FieldCondition( key="document_id", match=MatchValue( value=document_id ) ) ] ) )
             log_message( LG.Database, f"Vectors مربوط به document {document_id} حذف شد", LogLevel.INFO )
             return True
         except Exception as e:
@@ -150,12 +147,12 @@ class QdrantManager:
             return False
 
     def get_collection_info( self ) -> Dict[ str, Any ]:
-        """دریافت اطلاعات collection"""
+        """ ‫دریافت اطلاعات collection"""
         try:
             info = self.client.get_collection( self.collection_name )          # type: ignore
             return {
                 "points_count": info.points_count,          # ✅ این وجود داره
-                "vectors_count": info.points_count,          # همون points_count هست
+                "vectors_count": info.points_count,          # ‫ همون points_count هست
                 "status": info.status
             }
         except Exception as e:

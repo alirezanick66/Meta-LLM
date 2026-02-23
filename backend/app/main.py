@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.app.core.config import settings
-from backend.app.core.database import check_db_connection, init_db
+from backend.app.core.database import check_db_connection
 from backend.app.db.qdrant_client import get_qdrant_manager
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
@@ -16,22 +16,21 @@ from backend.app.api.exceptions import ( validation_exception_handler, database_
 
 @asynccontextmanager
 async def lifespan( app: FastAPI ):
-    """مدیریت lifecycle اپلیکیشن"""
+    """ ‫مدیریت lifecycle اپلیکیشن"""
 
     # ==================== Startup ====================
     log_message( LG.API, "=" * 70, LogLevel.INFO )
     log_message( LG.API, "🚀 Meta API در حال راه‌اندازی...", LogLevel.INFO )
     log_message( LG.API, "=" * 70, LogLevel.INFO )
 
-    # چک اتصال PostgreSQL
+    # ‫چک اتصال PostgreSQL
     if check_db_connection():
         log_message( LG.Database, "✅ PostgreSQL متصل است", LogLevel.INFO )
-        init_db()
     else:
         log_message( LG.Database, "❌ خطا در اتصال به PostgreSQL", LogLevel.ERROR )
         raise RuntimeError( "Cannot start without Database connection" )
 
-    # چک اتصال Qdrant
+    # ‫چک اتصال Qdrant
     try:
         qdrant_manager = get_qdrant_manager()
         info = qdrant_manager.get_collection_info()
@@ -68,7 +67,7 @@ app = FastAPI( title="Meta API",
 # ==================== CORS Middleware ====================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[ "*" ],          # ⚠️ در production باید محدود شود
+    allow_origins=[ "*" ],          # ‫⚠️ در production باید محدود شود
     allow_credentials=True,
     allow_methods=[ "*" ],
     allow_headers=[ "*" ],
@@ -87,7 +86,7 @@ app.include_router( api_router )
 @app.get( "/" )
 async def root():
     """
-    Endpoint اصلی برای تست و راهنما
+    ‫Endpoint اصلی برای تست و راهنما
     """
     log_message( LG.API, "📨 درخواست به root endpoint", LogLevel.DEBUG )
 

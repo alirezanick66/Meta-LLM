@@ -39,7 +39,7 @@ class EmbeddingService:
 
             # بهینه‌سازی برای CPU
             if self.device == "cpu":
-                torch.set_num_threads( settings.CPU_THREADS )
+                torch.set_num_threads( settings.EMBEDDING_CPU_THREADS )
                 log_message( LG.DataProcessing, "تنظیمات CPU optimization اعمال شد", LogLevel.DEBUG )
 
             # تست مدل

@@ -7,7 +7,7 @@ from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 class PostgresManager:
     """
-    مدیریت عملیات CRUD برای PostgreSQL
+   ‫ مدیریت عملیات CRUD برای PostgreSQL
     """
 
     def __init__( self, db: Session ):
@@ -15,13 +15,7 @@ class PostgresManager:
 
     # ==================== Document Operations ====================
 
-    def create_document(
-        self,
-        filename: str,
-        file_path: str,
-        file_hash: str,
-        total_chunks: int = 0,
-    ) -> Document:
+    def create_document( self, filename: str, file_path: str, file_hash: str, total_chunks: int = 0 ) -> Document:
         """ایجاد سند جدید"""
         try:
             doc = Document(
@@ -41,11 +35,11 @@ class PostgresManager:
             raise
 
     def get_document_by_id( self, document_id: int ) -> Optional[ Document ]:
-        """دریافت سند با ID (بسیار سریع با استفاده از Session.get)"""
+        """دریافت سند با ‫ ID (بسیار سریع با استفاده از Session.get)"""
         return self.db.get( Document, document_id )
 
     def get_document_by_hash( self, file_hash: str ) -> Optional[ Document ]:
-        """دریافت سند با hash"""
+        """ ‫دریافت سند با hash"""
         return self.db.query( Document ).filter_by( file_hash=file_hash ).first()
 
     def get_document_by_filename( self, filename: str ) -> Optional[ Document ]:
@@ -57,10 +51,10 @@ class PostgresManager:
         return self.db.query( Document ).all()
 
     def update_document_chunks_count( self, document_id: int, total_chunks: int ) -> bool:
-        """به‌روزرسانی تعداد chunks"""
+        """ ‫به‌روزرسانی تعداد chunks"""
         try:
-            # استفاده از filter_by برای خوانایی بیشتر
-            self.db.query( Document ).filter_by( id=document_id ).update( { Document.total_chunks: total_chunks } )
+            # ‫استفاده از filter_by برای خوانایی بیشتر
+            self.db.query( Document ).filter_by( id=document_id ).update( { "total_chunks": total_chunks } )
             self.db.commit()
             return True
         except Exception as e:
@@ -71,7 +65,7 @@ class PostgresManager:
     def delete_document( self, document_id: int ) -> bool:
         """
         حذف سند 
-        chunks به دلیل Cascade در مدل DB خودکار حذف می‌شوند.
+       ‫ chunks به دلیل Cascade در مدل DB خودکار حذف می‌شوند.
         """
         try:
             result = self.db.query( Document ).filter_by( id=document_id ).delete()
@@ -86,14 +80,7 @@ class PostgresManager:
 
     # ==================== Chunk Operations ====================
 
-    def create_chunk(
-        self,
-        document_id: int,
-        chunk_id: str,
-        content: str,
-        chunk_index: int,
-        token_count: int,
-    ) -> Chunk:
+    def create_chunk( self, document_id: int, chunk_id: str, content: str, chunk_index: int, token_count: int ) -> Chunk:
         """ایجاد chunk جدید"""
         try:
             chunk = Chunk( document_id=document_id,
@@ -101,6 +88,7 @@ class PostgresManager:
                            content=content,
                            chunk_index=chunk_index,
                            token_count=token_count )
+
             self.db.add( chunk )
             self.db.commit()
             self.db.refresh( chunk )
@@ -117,7 +105,7 @@ class PostgresManager:
         return self.db.query( Chunk.content ).filter_by( chunk_id=chunk_id ).scalar()
 
     def get_chunks_content_bulk( self, chunk_ids: List[ str ] ) -> Dict[ str, str ]:
-        """دریافت محتوای چندین chunk به صورت یکجا"""
+        """ ‫دریافت محتوای چندین chunk به صورت یکجا"""
         if not chunk_ids:
             return {}
 
@@ -141,30 +129,14 @@ class PostgresManager:
         except Exception as e:
             self.db.rollback()
             log_message( LG.Database, f"❌ خطا در bulk create: {str(e)}", LogLevel.ERROR )
-            return False
-
-    def get_chunk_by_id( self, chunk_id: str ) -> Optional[ Chunk ]:
-        """دریافت chunk با chunk_id"""
-        return self.db.query( Chunk ).filter_by( chunk_id=chunk_id ).first()
+            raise
 
     def get_chunks_by_document( self, document_id: int ) -> List[ Chunk ]:
-        """دریافت تمام chunks یک سند"""
+        """دریافت تمام ‫ chunks یک سند"""
         return self.db.query( Chunk ).filter_by( document_id=document_id ).order_by( Chunk.chunk_index ).all()
 
-    def delete_chunks_by_document( self, document_id: int ) -> bool:
-        """حذف تمام chunks یک سند"""
-        try:
-            count = self.db.query( Chunk ).filter_by( document_id=document_id ).delete()
-            self.db.commit()
-            log_message( LG.Database, f"🗑️ {count} chunk حذف شد", LogLevel.INFO )
-            return True
-        except Exception as e:
-            self.db.rollback()
-            log_message( LG.Database, f"❌ خطا در حذف chunks: {str(e)}", LogLevel.ERROR )
-            return False
-
     def get_total_chunks_count( self ) -> int:
-        """تعداد کل chunks"""
+        """ ‫تعداد کل chunks"""
         return self.db.query( func.count( Chunk.id ) ).scalar()          # یا self.db.query(Chunk).count()
 
     def get_total_documents_count( self ) -> int:

@@ -15,7 +15,7 @@ class LLMResponse( TypedDict ):
 
 class GroqClient:
     """
-    کلاینت Groq API برای تولید پاسخ با LLM
+    ‫استفاده از api Groq
     """
 
     def __init__( self ):
@@ -27,21 +27,17 @@ class GroqClient:
         if not self.api_key:
             raise ValueError( "GROQ_API_KEY یافت نشد!" )
 
-        # ایجاد client
-        self.client = Groq( api_key=self.api_key )
+        # ‫ایجاد client
+        self.client = Groq( api_key=self.api_key, timeout=settings.LLM_TIMEOUT )
 
-        log_message(
-            LG.LLM,
-            f"GroqClient آماده شد - Model: {self.model}, Temp: {self.default_temperature}",
-            LogLevel.INFO,
-        )
+        log_message( LG.LLM, f"GroqClient آماده شد - Model: {self.model}, Temp: {self.default_temperature}", LogLevel.INFO )
 
     def _execute_request( self,
                           messages: List[ ChatCompletionMessageParam ],
                           temperature: Optional[ float ] = None,
                           max_tokens: Optional[ int ] = None ) -> LLMResponse:
         """
-        هسته مرکزی برای مدیریت تمام درخواست‌ها و خطاها (Internal Only)
+       ‫ هسته مرکزی برای مدیریت تمام درخواست‌ها و خطاها (Internal Only)
         """
         try:
             temp = temperature if temperature is not None else self.default_temperature
@@ -66,7 +62,7 @@ class GroqClient:
 
             return LLMResponse( success=True, content=content, model=self.model, usage=usage, error=None )
 
-        except APIError as e:          # خطاهای اختصاصی Groq
+        except APIError as e:          # ‫خطاهای اختصاصی Groq
             error_msg = f"Groq API Error: {e.message}"
             log_message( LG.LLM, f"❌ {error_msg}", LogLevel.ERROR )
             return self._create_error_result( error_msg )

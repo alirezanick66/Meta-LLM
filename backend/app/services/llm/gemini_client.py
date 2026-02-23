@@ -15,12 +15,15 @@ class LLMResponse( TypedDict ):
 
 
 class GeminiClient:
+    """
+    ‫استفاده از api gemini
+    """
 
     def __init__( self ):
         if not settings.GEMINI_API_KEY:
             raise ValueError( "❌ GEMINI_API_KEY یافت نشد!" )
 
-        self.client = genai.Client( api_key=settings.GEMINI_API_KEY )
+        self.client = genai.Client( api_key=settings.GEMINI_API_KEY, http_options={ 'timeout': settings.LLM_TIMEOUT } )
         self.model_name = settings.GEMINI_MODEL
 
         # ذخیره تنظیمات پیش‌فرض برای استفاده متدها
@@ -65,7 +68,9 @@ class GeminiClient:
                             finish_reason=finish_reason )
 
     def _check_safety_and_content( self, response: Any ) -> LLMResponse:
-        """بررسی وضعیت فیلترهای ایمنی و استخراج محتوا  """
+        """
+بررسی وضعیت فیلترهای ایمنی و استخراج محتوا  
+"""
 
         if not response.candidates:
             # بررسی اینکه آیا دلیل blocked بودن در feedback هست
@@ -103,7 +108,9 @@ class GeminiClient:
         temperature: Optional[ float ] = None,
         max_tokens: Optional[ int ] = None,
     ) -> LLMResponse:
-        """تولید پاسخ برای یک پرامپت تکی"""
+        """
+تولید پاسخ برای یک پرامپت تکی
+"""
         try:
             config = types.GenerateContentConfig(
                 temperature=temperature if temperature is not None else self.default_temp,
@@ -125,24 +132,23 @@ class GeminiClient:
               temperature: Optional[ float ] = None,
               max_tokens: Optional[ int ] = None ) -> LLMResponse:
         """
-        چت چند نوبتی.
-        در SDK جدید، به جای start_chat، معمولاً کل تاریخچه (history) را به صورت 
-        لیستی از Contents به متد generate_content پاس می‌دهیم.
+       ‫ چت چند نوبتی.
+       ‫ در SDK جدید، به جای start_chat، معمولاً کل تاریخچه (history) را به صورت 
+       ‫ لیستی از Contents به متد generate_content پاس می‌دهیم.
         """
         try:
             if not messages:
                 return self._create_error_result( "لیست پیام‌ها خالی است." )
 
-            # تبدیل پیام‌ها به فرمت استاندارد Contents
+            # ‫تبدیل پیام‌ها به فرمت استاندارد Contents
             # فرمت جدید: [{'role': 'user', 'parts': ['text']}, ...]
             history_contents = []
             for msg in messages:
                 role = msg.get( "role", "user" )
-
-                # نقش‌ها باید دقیقا user یا model باشند
+                #‫ نقش‌ها باید دقیقا user یا model باشند
                 if role == "system":
-                    # معمولا سیستم پیام جداگانه‌ای دارد، اما اینجا به user تبدیل می‌کنیم برای سادگی
-                    # یا می‌توان از system_instruction در config استفاده کرد
+                    #‫ معمولا سیستم پیام جداگانه‌ای دارد، اما اینجا به user تبدیل می‌کنیم برای سادگی
+                    #‫ یا می‌توان از system_instruction در config استفاده کرد
                     role = "user"
                 elif role not in [ "user", "model" ]:
                     role = "user"
@@ -155,9 +161,7 @@ class GeminiClient:
                 safety_settings=self.safety_settings )
 
             # ارسال کل تاریخچه به مدل
-            response = self.client.models.generate_content( model=self.model_name,
-                                                            contents=history_contents,
-                                                            config=config )
+            response = self.client.models.generate_content( model=self.model_name, contents=history_contents, config=config )
 
             return self._check_safety_and_content( response )
 
@@ -168,7 +172,9 @@ class GeminiClient:
 
 
 def get_gemini_model_list():
-    """دریافت اطلاعات مدل Gemini (مثل نام، ورژن، تنظیمات)"""
+    """
+   ‫ دریافت اطلاعات مدل Gemini (مثل نام، ورژن، تنظیمات)
+    """
     try:
         client = genai.Client( api_key=settings.GEMINI_API_KEY )
         models = client.models.list()

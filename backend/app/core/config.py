@@ -14,8 +14,10 @@ class Settings( BaseSettings ):
     # ==================== API Keys ====================
     GEMINI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
+
     # ==================== Document ====================
     DOCUMENTS_DIR: str = "backend/data/documents"
+
     # ==================== PostgreSQL ====================
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
@@ -46,10 +48,10 @@ class Settings( BaseSettings ):
     RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
     EMBEDDING_DEVICE: Literal[ "cpu", "cuda" ] = "cpu"
     EMBEDDING_BATCH_SIZE: int = 32
-    EMBEDDING_MODEL_TOKEN: str = "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"
-    EMBEDDING_MODEL_PATH: str = "E:\\A-Golchin program\\Ai\\Models\\gte-multilingual-base"
+    EMBEDDING_MODEL_TOKEN: str = ""
+    EMBEDDING_MODEL_PATH: str = ""
     EMBEDDING_VECTOR_DIM: int = 768
-    CPU_THREADS: int = 16          #تعداد ترد های CPU برای پردازش embedding
+    EMBEDDING_CPU_THREADS: int = 16          #تعداد ترد های CPU برای پردازش embedding
 
     # ==================== Chunking ====================
     CHUNK_SIZE: int = 512
@@ -75,7 +77,6 @@ class Settings( BaseSettings ):
     TEMPERATURE: float = 0.3          #میزان خلاقیت پاسخ‌ها از 0 تا 2
     MAX_TOKENS: int = 2048
     LLM_TIMEOUT: int = 5
-    LLM_MAX_RETRIES: int = 3
 
 
 settings = Settings()

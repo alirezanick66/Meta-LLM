@@ -20,7 +20,7 @@ class LLMResponse:
 
 
 class LLMOrchestrator:
-    """مدیریت هوشمند LLM با قابلیت Fallback خودکار."""
+    """ ‫مدیریت هوشمند LLM با قابلیت Fallback خودکار"""
 
     def __init__( self,
                   groq_client: GroqClient,
@@ -32,7 +32,7 @@ class LLMOrchestrator:
         self.use_fallback = use_fallback
 
     def _execute_chat( self, provider: str, prompt: PromptResult, temp: Optional[ float ] ) -> Dict[ str, Any ]:
-        """اجرای تماس با API به صورت متمرکز."""
+        """ ‫اجرای تماس با API به صورت متمرکز"""
         messages = [ { "role": "system", "content": prompt.system_prompt }, { "role": "user", "content": prompt.user_prompt } ]
         try:
             return self.clients[ provider ].chat( messages=messages, temperature=temp )
@@ -49,27 +49,27 @@ class LLMOrchestrator:
 
         prompt = self.prompt_builder.build_prompt( query, chunks, include_metadata )
 
-        # 1. تلاش اول: Groq
+        # ‫1. تلاش اول: Groq
         res = self._execute_chat( "groq", prompt, temperature )
         current_provider = "groq"
 
-        # 2. تلاش دوم (Fallback): Gemini
+        # ‫2. تلاش دوم (Fallback): Gemini
         if not res[ "success" ] and self.use_fallback:
             log_message( LG.LLM, f"⚠️ Groq failed ({res.get('error')}), trying Gemini...", LogLevel.WARNING )
 
-            # تلاش با Gemini
+            # ‫تلاش با Gemini
             res = self._execute_chat( "gemini", prompt, temperature )
             current_provider = "gemini"
 
-            # اگر Gemini هم خطا داد
+            #‫ اگر Gemini هم خطا داد
             if not res[ "success" ]:
                 log_message( LG.LLM, f"❌ Gemini also failed: {res.get('error')}", LogLevel.ERROR )
 
-        # ساخت پاسخ نهایی (بدون تغییر دادن دیکشنری res)
+        # ‫ساخت پاسخ نهایی (بدون تغییر دادن دیکشنری res)
         return self._wrap_response( res, current_provider, prompt )
 
     def _wrap_response( self, res: Dict, provider_name: str, prompt: PromptResult ) -> LLMResponse:
-        """تبدیل دیکشنری خروجی به شیء استاندارد LLMResponse."""
+        """ ‫تبدیل دیکشنری خروجی به شیء استاندارد LLMResponse."""
         if not res.get( "success" ):
             return LLMResponse( success=False,
                                 error=res.get( "error" ),
