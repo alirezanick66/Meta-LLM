@@ -78,13 +78,6 @@ class ChatResponse( BaseModel ):
     error: Optional[ str ] = Field( None, description="پیغام خطا (در صورت وجود)" )
     timestamp: datetime = Field( default_factory=datetime.now, description="زمان پاسخ" )
 
-    @field_validator( 'error', 'answer' )
-    @classmethod
-    def check_consistency( cls, v: Optional[ str ], info ) -> Optional[ str ]:
-        """اطمینان از اینکه همزمان هم error و هم answer پر نشده باشند"""
-        # این منطق کمی پیشرفته است و بسته به نیاز شما می‌تواند ساده‌تر باشد
-        return v
-
     model_config = ConfigDict(
         json_schema_extra={
             "example": {

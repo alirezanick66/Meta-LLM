@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.app.api.dependencies import get_qdrant_manager
+from backend.app.api.dependencies import ( get_qdrant_manager, get_embedding_service, get_bm25_indexer, get_llm_orchestrator,
+                                           get_hybrid_retriever, get_tokenizer_service )
 from backend.app.core.config import settings
 from backend.app.core.database import check_db_connection
 from backend.app.utils.logging_config import log_message, LG, LogLevel
@@ -38,6 +39,19 @@ async def lifespan( app: FastAPI ):
         log_message( LG.Database, f"✅ Qdrant متصل است - Vectors: {vectors_count}", LogLevel.INFO )
     except Exception as e:
         log_message( LG.Database, f"❌ خطا در اتصال به Qdrant: {str(e)}", LogLevel.ERROR )
+        raise RuntimeError( f"Cannot start without Qdrant: {str(e)}" )
+
+    log_message( LG.API, "⏳ در حال بارگذاری سرویس‌ها...", LogLevel.INFO )
+    try:
+        get_tokenizer_service()
+        get_embedding_service()
+        get_bm25_indexer()
+        get_llm_orchestrator()
+        get_hybrid_retriever()
+        log_message( LG.API, "✅ همه سرویس‌ها آماده‌اند", LogLevel.INFO )
+    except Exception as e:
+        log_message( LG.API, f"❌ خطا در بارگذاری سرویس‌ها: {str(e)}", LogLevel.ERROR )
+        raise RuntimeError( f"Cannot start without services: {str(e)}" )
 
     # نمایش تنظیمات
     log_message( LG.API, f"🤖 Embedding Model: {settings.EMBEDDING_MODEL}", LogLevel.INFO )
@@ -70,8 +84,7 @@ app.add_middleware(
     allow_origins=[ "*" ],          # ‫⚠️ در production باید محدود شود
     allow_credentials=True,
     allow_methods=[ "*" ],
-    allow_headers=[ "*" ],
-)
+    allow_headers=[ "*" ] )
 
 # ==================== Exception Handlers ====================
 app.exception_handler( RequestValidationError )( validation_exception_handler )

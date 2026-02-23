@@ -20,11 +20,15 @@ class DocumentProcessor:
     """
 
     def __init__( self ):
-        self.extractors = {
-            'markdown': markdown_extractor,
-            'word': word_extractor,
+        self.extractors = { 'markdown': markdown_extractor, 'word': word_extractor }
+
+        #‫ ‫یه بار ساختته میشه، نه هر بار extract
+        self._extract_methods = {
+            'markdown': lambda path: markdown_extractor.extract_from_markdown( path ),
+            'word': lambda path: word_extractor.extract_from_word( path ),
         }
-        log_message( LG.DataProcessing, "DocumentProcessor آماده شد", LogLevel.INFO )
+
+    log_message( LG.DataProcessing, "DocumentProcessor آماده شد", LogLevel.INFO )
 
     def extract( self, file_path: str ) -> Tuple[ str, Dict ]:
         """
@@ -53,13 +57,6 @@ class DocumentProcessor:
 
         log_message( LG.DataProcessing, f"پردازش فایل {path.name} (نوع: {file_type})", LogLevel.INFO )
 
-        # دیسپچ کردن به متد صحیح بر اساس نوع فایل
-        # نکته: در آینده می‌توان تمام extractorها را مجبور کرد متد یکسانی مثل 'extract' داشته باشند
-
-        self._extract_methods = {
-            'markdown': lambda path: markdown_extractor.extract_from_markdown( path ),
-            'word': lambda path: word_extractor.extract_from_word( path ),
-        }
         return self._extract_methods[ file_type ]( file_path )
 
     def get_file_type( self, file_path: str ) -> str | None:

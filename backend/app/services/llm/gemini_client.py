@@ -132,35 +132,28 @@ class GeminiClient:
               temperature: Optional[ float ] = None,
               max_tokens: Optional[ int ] = None ) -> LLMResponse:
         """
-       ‫ چت چند نوبتی.
-       ‫ در SDK جدید، به جای start_chat، معمولاً کل تاریخچه (history) را به صورت 
-       ‫ لیستی از Contents به متد generate_content پاس می‌دهیم.
+        ‫ چت چند نوبتی با پشتیبانی از system_instruction
         """
         try:
             if not messages:
                 return self._create_error_result( "لیست پیام‌ها خالی است." )
 
-            # ‫تبدیل پیام‌ها به فرمت استاندارد Contents
-            # فرمت جدید: [{'role': 'user', 'parts': ['text']}, ...]
-            history_contents = []
-            for msg in messages:
-                role = msg.get( "role", "user" )
-                #‫ نقش‌ها باید دقیقا user یا model باشند
-                if role == "system":
-                    #‫ معمولا سیستم پیام جداگانه‌ای دارد، اما اینجا به user تبدیل می‌کنیم برای سادگی
-                    #‫ یا می‌توان از system_instruction در config استفاده کرد
-                    role = "user"
-                elif role not in [ "user", "model" ]:
-                    role = "user"
+            # ‫جداسازی system prompt و ارسال به عنوان system_instruction
+            system_text = next( ( m.get( "content", "" ) for m in messages if m.get( "role" ) == "system" ), None )
 
-                history_contents.append( { "role": role, "parts": [ types.Part( text=msg.get( "content", "" ) ) ] } )
+            # ‫فقط پیام‌های user/model — بدون system
+            history_contents = [ {
+                "role": msg[ "role" ],
+                "parts": [ types.Part( text=msg.get( "content", "" ) ) ]
+            } for msg in messages if msg.get( "role" ) != "system" ]
 
             config = types.GenerateContentConfig(
                 temperature=temperature if temperature is not None else self.default_temp,
                 max_output_tokens=max_tokens if max_tokens is not None else self.default_max_tokens,
-                safety_settings=self.safety_settings )
+                safety_settings=self.safety_settings,
+                system_instruction=system_text,
+            )
 
-            # ارسال کل تاریخچه به مدل
             response = self.client.models.generate_content( model=self.model_name, contents=history_contents, config=config )
 
             return self._check_safety_and_content( response )

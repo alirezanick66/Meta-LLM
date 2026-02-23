@@ -1,18 +1,9 @@
 import re
 from typing import List, Dict, Any
-from transformers import AutoTokenizer
 from langchain_text_splitters import RecursiveCharacterTextSplitter, MarkdownHeaderTextSplitter
 from backend.app.core.config import settings
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 from backend.app.api.dependencies import get_tokenizer_service
-
-# ==========================================
-# توکنایزر BGE-M3
-# ==========================================
-log_message( LG.DataProcessing, "Initializing tokenizer for chunking...", LogLevel.INFO )
-tokenizer = AutoTokenizer.from_pretrained( settings.EMBEDDING_MODEL_PATH,
-                                           trust_remote_code=True )          # اضافه کردن این پارامتر برای مدل‌های سفارشی)
-log_message( LG.DataProcessing, "Tokenizer loaded.", LogLevel.INFO )
 
 
 # ==========================================
@@ -21,6 +12,7 @@ log_message( LG.DataProcessing, "Tokenizer loaded.", LogLevel.INFO )
 class MarkdownChunker:
 
     def __init__( self ):
+        self._tokenizer = get_tokenizer_service()
         # 1. تقسیم بر اساس هدرها
         self.md_splitter = MarkdownHeaderTextSplitter( headers_to_split_on=[
             ( "#", "Header 1" ),
@@ -33,7 +25,7 @@ class MarkdownChunker:
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
             chunk_overlap=settings.CHUNK_OVERLAP,
-            length_function=get_tokenizer_service().count_tokens,
+            length_function=self._tokenizer.count_tokens,
             separators=[ "\n\n", "\n", "،", ".", " ", "" ],
         )
 
@@ -69,7 +61,7 @@ class MarkdownChunker:
                 continue
 
             # تقسیم متن طولانی
-            if get_tokenizer_service().count_tokens( content_raw ) > settings.CHUNK_SIZE:
+            if self._tokenizer.count_tokens( content_raw ) > settings.CHUNK_SIZE:
                 sub_chunks = self.text_splitter.split_text( content_raw )
             else:
                 sub_chunks = [ content_raw ]
@@ -93,8 +85,8 @@ class MarkdownChunker:
                 chunk_data = {
                     "chunk_id": f"doc_{doc_id}_chunk_{global_chunk_index:03d}",          # ✅ ID یکتا
                     "content": final_content,
-                    "token_count": get_tokenizer_service().count_tokens( final_content ),
-                    "word_count": get_tokenizer_service().count_words( final_content ),
+                    "token_count": self._tokenizer.count_tokens( final_content ),
+                    "word_count": self._tokenizer.count_words( final_content ),
                     "metadata": {
                         "document_id": doc_id,
                         "source": source_file,

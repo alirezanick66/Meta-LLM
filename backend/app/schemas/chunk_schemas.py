@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from pydantic import ConfigDict
 
 
 class ChunkMetadata( BaseModel ):
@@ -15,4 +16,4 @@ class ChunkMetadata( BaseModel ):
     heading_level: int = 0
 
     class Config:
-        extra = 'ignore'
+        model_config = ConfigDict( extra='ignore' )

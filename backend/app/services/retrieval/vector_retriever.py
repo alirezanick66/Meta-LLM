@@ -59,13 +59,11 @@ class VectorRetriever:
             LogLevel.INFO,
         )
 
-    def retrieve(
-        self,
-        query: str,
-        top_k: Optional[ int ] = None,
-        score_threshold: Optional[ float ] = None,
-        document_id: Optional[ int ] = None,
-    ) -> List[ Dict[ str, Any ] ]:
+    def retrieve( self,
+                  query: str,
+                  top_k: Optional[ int ] = None,
+                  score_threshold: Optional[ float ] = None,
+                  document_id: Optional[ int ] = None ) -> List[ Dict[ str, Any ] ]:
         """
         جستجوی semantic با vector embedding
         

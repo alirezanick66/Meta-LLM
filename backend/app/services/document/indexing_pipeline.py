@@ -4,11 +4,9 @@ from sqlalchemy.orm import Session
 from backend.app.db.postgres import PostgresManager
 from backend.app.services.document.document_processor import document_processor
 from backend.app.services.document.chunker import MarkdownChunker
-from backend.app.api.dependencies import get_embedding_service
-from backend.app.api.dependencies import get_qdrant_indexer
-from backend.app.services.retrieval.bm25_indexer import BM25Indexer
 from backend.app.utils.hash_utils import calculate_file_hash
 from backend.app.utils.logging_config import LG, LogLevel, log_message
+from backend.app.api.dependencies import get_embedding_service, get_qdrant_indexer, get_bm25_indexer
 
 
 class IndexingPipeline:
@@ -26,7 +24,7 @@ class IndexingPipeline:
         self.chunker = MarkdownChunker()
         self.embedding_service = get_embedding_service()
         self.qdrant_indexer = get_qdrant_indexer()
-        self.bm25_indexer = BM25Indexer()
+        self.bm25_indexer = get_bm25_indexer()
         log_message( LG.DataProcessing, "IndexingPipeline آماده شد", LogLevel.INFO )
 
     # ==================== Public Methods ====================

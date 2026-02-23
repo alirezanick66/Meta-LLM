@@ -45,5 +45,5 @@ def verify_file_changed( file_path: str, old_hash: str ) -> bool:
     try:
         new_hash = calculate_file_hash( file_path )
         return new_hash != old_hash
-    except:
+    except Exception:
         return True          # در صورت خطا، فرض می‌کنیم فایل تغییر کرده
