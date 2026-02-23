@@ -177,6 +177,7 @@ file_path       TEXT NOT NULL
 total_chunks    INTEGER DEFAULT 0
 file_hash       VARCHAR(64) UNIQUE NOT NULL  -- SHA-256
 indexed_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 ```
 
 **Table 2: chunks**
@@ -189,6 +190,7 @@ content         TEXT NOT NULL
 chunk_index     INTEGER NOT NULL
 token_count     INTEGER NOT NULL
 created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 
 INDEX idx_chunks_document_id
 INDEX idx_chunks_chunk_index
@@ -318,7 +320,7 @@ class Source(BaseModel):
     - **`DELETE /api/documents/{document_id}` - حذف یک سند** 🆕
     - **`POST /api/documents/bulk-delete` - حذف دسته‌ای با یک BM25 rebuild** 🆕
 - ✅ **Exception Handling:** با traceback و type-based handling
-- ✅ **Dependency Injection:** Singleton pattern برای services
+- ✅ **Dependency Injection:** Singleton pattern با `@lru_cache` برای همه سرویس‌ها
 - ✅ **Security:** path traversal protection با `Path(filename).name`
 
 #### ✅ **فاز 10: Frontend**
@@ -362,21 +364,21 @@ frontend/
 │   │   ├── InputBox.jsx
 │   │   ├── SkeletonMessage.jsx
 │   │   ├── ScrollToBottom.jsx
-│   │   ├── SourceCards.jsx       # 🆕
-│   │   ├── SourceModal.jsx       # 🆕
-│   │   └── admin/                # 🆕
+│   │   ├── SourceCards.jsx
+│   │   ├── SourceModal.jsx
+│   │   └── admin/
 │   │       ├── AdminLogin.jsx
 │   │       ├── StatsCard.jsx
 │   │       ├── DocumentList.jsx
 │   │       └── UploadZone.jsx
 │   ├── hooks/
 │   │   └── useTypingEffect.js
-│   ├── pages/                    # 🆕
+│   ├── pages/
 │   │   ├── ChatPage.jsx
 │   │   └── AdminPage.jsx
 │   ├── services/
 │   │   ├── api.js
-│   │   └── adminApi.js           # 🆕
+│   │   └── adminApi.js
 │   ├── index.css
 │   └── main.jsx
 ├── index.html
@@ -510,25 +512,52 @@ Meta/
 │   ├── alembic/
 │   ├── app/
 │   │   ├── core/
+│   │   │   ├── config.py
+│   │   │   └── database.py
 │   │   ├── db/
+│   │   │   ├── models.py
+│   │   │   └── postgres.py
 │   │   ├── api/
 │   │   │   ├── routes.py
-│   │   │   ├── dependencies.py
+│   │   │   ├── dependencies.py       # Singleton management (@lru_cache)
 │   │   │   └── exceptions.py
 │   │   ├── schemas/
-│   │   │   └── api_schemas.py
+│   │   │   ├── base_schemas.py       # Enums مشترک (LLMProvider, HealthStatus)
+│   │   │   ├── api_schemas.py        # UsageInfo, HealthResponse, SystemStats
+│   │   │   ├── chat_schemas.py       # ChatRequest, ChatResponse, Source
+│   │   │   ├── chunk_schemas.py      # ChunkMetadata (Qdrant payload)
+│   │   │   └── llm_schemas.py        # PromptResult, LLMResponse, ProviderLLMResponse
 │   │   ├── services/
+│   │   │   ├── embedding/
+│   │   │   │   ├── embedding_service.py
+│   │   │   │   └── tokenizer_service.py
+│   │   │   ├── vector_store/
+│   │   │   │   ├── qdrant_client.py
+│   │   │   │   └── qdrant_indexer.py
 │   │   │   ├── retrieval/
-│   │   │   ├── llm/
-│   │   │   └── document/
-│   │   │       ├── document_processor.py
-│   │   │       ├── indexing_pipeline.py
-│   │   │       ├── chunker.py
-│   │   │       ├── markdown_extractor.py
-│   │   │       └── word_extractor.py
-│   │   └── utils/
+│   │   │   │   ├── bm25_indexer.py
+│   │   │   │   ├── vector_retriever.py
+│   │   │   │   └── hybrid_retriever.py
+│   │   │   ├── document/
+│   │   │   │   ├── document_processor.py
+│   │   │   │   ├── indexing_pipeline.py
+│   │   │   │   ├── chunker.py
+│   │   │   │   ├── markdown_extractor.py
+│   │   │   │   └── word_extractor.py
+│   │   │   └── llm/
+│   │   │       ├── groq_client.py
+│   │   │       ├── gemini_client.py
+│   │   │       ├── prompt_builder.py
+│   │   │       └── llm_orchestrator.py
+│   │   ├── utils/
+│   │   │   ├── logging_config.py
+│   │   │   └── hash_utils.py
+│   │   └── main.py
 │   ├── data/
-│   └── main.py
+│   │   ├── documents/                # فایل‌های ورودی
+│   │   └── storage/
+│   │       └── bm25_cache/           # bm25_index.pkl, chunk_mapping.pkl
+│   └── requirements.txt
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
@@ -543,7 +572,6 @@ Meta/
 │   └── package.json
 ├── scripts/
 ├── docker-compose.yml
-├── requirements.txt
 └── README.md
 ```
 
@@ -598,7 +626,6 @@ alembic upgrade head
 
 ```bash
 # حذف collection قدیمی و ساخت مجدد
-# (از طریق Qdrant dashboard یا API)
 curl -X DELETE http://localhost:6333/collections/meta_documents
 # سپس re-index همه اسناد
 ```
@@ -613,10 +640,10 @@ curl -X DELETE http://localhost:6333/collections/meta_documents
 
 ## 📌 اطلاعات نسخه
 
-- **نسخه:** 1.1.0
-- **آخرین بروزرسانی:** 2026-02-21
-- **وضعیت:** فاز 10 تکمیل شد (با بهبودهای Phase 1) ✅
-- **مرحله بعدی:** فاز 7 - Caching & Optimization یا فاز 11 - Advanced Features
+- **نسخه:** 1.2.0
+- **آخرین بروزرسانی:** 2026-02-23
+- **وضعیت:** Refactoring کامل شد (Singleton یکپارچه، Schema لایه‌بندی شده، Circular Import حل شد) ✅
+- **مرحله بعدی:** فاز 7 - Caching & Optimization
 
 ---
 
