@@ -137,7 +137,8 @@ class QdrantManager:
     def delete_by_document( self, document_id: int ) -> bool:
         """ ‫حذف تمام vectors مربوط به یک document"""
         try:
-            self.client.delete(          # type: ignore
+            assert self.client is not None, "Qdrant client متصل نیست"
+            self.client.delete(
                 collection_name=self.collection_name,
                 points_selector=Filter( must=[ FieldCondition( key="document_id", match=MatchValue( value=document_id ) ) ] ) )
             log_message( LG.Database, f"Vectors مربوط به document {document_id} حذف شد", LogLevel.INFO )
@@ -149,7 +150,8 @@ class QdrantManager:
     def get_collection_info( self ) -> Dict[ str, Any ]:
         """ ‫دریافت اطلاعات collection"""
         try:
-            info = self.client.get_collection( self.collection_name )          # type: ignore
+            assert self.client is not None, "Qdrant client متصل نیست"
+            info = self.client.get_collection( self.collection_name )
             return {
                 "points_count": info.points_count,          # ✅ این وجود داره
                 "vectors_count": info.points_count,          # ‫ همون points_count هست
@@ -158,8 +160,3 @@ class QdrantManager:
         except Exception as e:
             log_message( LG.Database, f"خطا در دریافت اطلاعات کالکشن: {str(e)}", LogLevel.ERROR )
             return {}
-
-
-# Instance سراسری
-def get_qdrant_manager():
-    return QdrantManager()

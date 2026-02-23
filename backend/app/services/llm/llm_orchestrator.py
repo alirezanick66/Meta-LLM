@@ -88,10 +88,12 @@ class LLMOrchestrator:
 
 
 # ==================== Factory Function ====================
-def create_llm_orchestrator( max_context_tokens: int = 3000, use_fallback: bool = True ) -> LLMOrchestrator:
+def create_llm_orchestrator( tokenizer_service, max_context_tokens: int = 3000, use_fallback: bool = True ) -> LLMOrchestrator:
     return LLMOrchestrator(
         groq_client=create_groq_client(),
         gemini_client=create_gemini_client(),
-        prompt_builder=create_prompt_builder( include_sources=True, max_context_tokens=max_context_tokens ),
+        prompt_builder=create_prompt_builder( tokenizer_service=tokenizer_service,
+                                              include_sources=True,
+                                              max_context_tokens=max_context_tokens ),
         use_fallback=use_fallback,
     )

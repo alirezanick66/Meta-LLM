@@ -1,15 +1,15 @@
 from typing import List, Dict, Any
 from pydantic import ValidationError
-from backend.app.db.qdrant_client import QdrantManager
+from backend.app.services.vector.qdrant_client import QdrantManager
 from backend.app.schemas.chunk_schemas import ChunkMetadata
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 
 class QdrantIndexer:
     """
-    مدیریت indexing در Qdrant
-    - ذخیره embeddings با metadata
-    - حذف documents
+   ‫ مدیریت indexing در Qdrant
+    - ‫ذخیره embeddings با metadata
+    - ‫حذف documents
     - آمارگیری
     """
 
@@ -19,10 +19,10 @@ class QdrantIndexer:
 
     def index_chunks( self, chunks: List[ Dict[ str, Any ] ] ) -> bool:
         """
-        ایجاد index برای chunks در Qdrant
+       ‫ ایجاد index برای chunks در Qdrant
         
         Args:
-            chunks: لیست chunks که هر کدام باید 'embedding' داشته باشند
+            ‫chunks: لیست chunks که هر کدام باید 'embedding' داشته باشند
             
         Returns:
             True در صورت موفقیت
@@ -38,20 +38,20 @@ class QdrantIndexer:
             valid_embeddings = []
             valid_metadata = []
 
-            # شمارش خطاها برای batch logging
+            # ‫شمارش خطاها برای batch logging
             error_counts = { 'missing_embedding': 0, 'validation_error': 0 }
 
             for chunk in chunks:
                 try:
-                    # بررسی وجود embedding
+                    #‫بررسی وجود embedding
                     if 'embedding' not in chunk:
                         error_counts[ 'missing_embedding' ] += 1
                         continue
 
-                    # ترکیب metadata با chunk_id برای validation
+                    # ‫ترکیب metadata با chunk_id برای validation
                     raw_metadata = { **chunk.get( 'metadata', {} ), 'chunk_id': chunk.get( 'chunk_id' ) }
 
-                    # Validation با Pydantic (خود Pydantic فیلتر می‌کنه)
+                    # ‫Validation با Pydantic (خود Pydantic فیلتر می‌کنه)
                     validated = ChunkMetadata.model_validate( raw_metadata )
 
                     # اضافه به لیست‌های معتبر
@@ -61,7 +61,7 @@ class QdrantIndexer:
 
                 except ValidationError as e:
                     error_counts[ 'validation_error' ] += 1
-                    # فقط اولین خطا رو log کن برای debug
+                    #‫ فقط اولین خطا رو log کن برای debug
                     if error_counts[ 'validation_error' ] == 1:
                         log_message( LG.Database, f"نمونه خطای validation: {e.json()}", LogLevel.DEBUG )
 
@@ -140,11 +140,3 @@ class QdrantIndexer:
         except Exception as e:
             log_message( LG.Database, f"خطا در دریافت آمار Qdrant: {str(e)}", LogLevel.ERROR )
             return { 'total_vectors': 0, 'status': 'error' }
-
-
-# تابع کمکی برای ساخت instance
-def create_qdrant_indexer() -> QdrantIndexer:
-    """ساخت instance از QdrantIndexer"""
-    from backend.app.db.qdrant_client import get_qdrant_manager
-    qdrant_manager = get_qdrant_manager()
-    return QdrantIndexer( qdrant_manager )

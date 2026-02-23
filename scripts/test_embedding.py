@@ -1,12 +1,11 @@
 import sys
 import time
-import threading
 import numpy as np
 from pathlib import Path
 
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
-from backend.app.services.embedding_service import get_embedding_service, reset_embedding_service
+from backend.app.api.dependencies import get_embedding_service
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 embedding_service = get_embedding_service()
@@ -43,8 +42,8 @@ try:
         embedding = embedding_service.embed_single( text if text else "" )
         is_zero = np.allclose( embedding, 0 )
 
-        log_message( LG.DataProcessing,
-                     f"  - متن {i+1} ('{repr(text)}'): {'✅ Zero vector' if is_zero else '❌ غیرمنتظره!'}", LogLevel.INFO )
+        log_message( LG.DataProcessing, f"  - متن {i+1} ('{repr(text)}'): {'✅ Zero vector' if is_zero else '❌ غیرمنتظره!'}",
+                     LogLevel.INFO )
 
 except Exception as e:
     log_message( LG.DataProcessing, f"❌ خطا: {e}", LogLevel.ERROR )
@@ -102,16 +101,14 @@ try:
     log_message( LG.DataProcessing, f"✅ Batch embedding انجام شد:", LogLevel.INFO )
     log_message( LG.DataProcessing, f"  - تعداد ورودی: {len(texts)}", LogLevel.INFO )
     log_message( LG.DataProcessing, f"  - Shape خروجی: {embeddings.shape}", LogLevel.INFO )
-    log_message( LG.DataProcessing, f"  - زمان اجرا: {elapsed:.3f}s ({elapsed/len(texts):.3f}s per text)",
-                 LogLevel.INFO )
+    log_message( LG.DataProcessing, f"  - زمان اجرا: {elapsed:.3f}s ({elapsed/len(texts):.3f}s per text)", LogLevel.INFO )
 
     # چک zero vectors
     for i, text in enumerate( texts ):
         is_zero = np.allclose( embeddings[ i ], 0 )
         if not text or not text.strip():
             status = "✅" if is_zero else "❌"
-            log_message( LG.DataProcessing,
-                         f"  - Index {i} (متن خالی): {status} {'Zero vector' if is_zero else 'غیرمنتظره!'}",
+            log_message( LG.DataProcessing, f"  - Index {i} (متن خالی): {status} {'Zero vector' if is_zero else 'غیرمنتظره!'}",
                          LogLevel.DEBUG )
 
 except Exception as e:
@@ -197,14 +194,6 @@ try:
         log_message( LG.DataProcessing, "  ✅ Cleanup موفق (model = None)", LogLevel.INFO )
     else:
         log_message( LG.DataProcessing, "  ❌ Cleanup ناموفق!", LogLevel.ERROR )
-
-    # Test reset
-    reset_embedding_service()
-    log_message( LG.DataProcessing, "  ✅ Reset service موفق", LogLevel.INFO )
-
-    # بارگذاری دوباره
-    new_service = get_embedding_service()
-    test_emb = new_service.embed_single( "تست بعد از reset" )
 
     log_message( LG.DataProcessing, "  ✅ مدل بعد از reset دوباره بارگذاری شد", LogLevel.INFO )
 

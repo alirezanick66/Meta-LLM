@@ -4,9 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
+from backend.app.api.dependencies import get_qdrant_manager
 from backend.app.core.config import settings
 from backend.app.core.database import check_db_connection
-from backend.app.db.qdrant_client import get_qdrant_manager
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 # Import API routes و exception handlers

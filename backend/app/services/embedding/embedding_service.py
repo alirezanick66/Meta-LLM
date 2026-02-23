@@ -1,5 +1,4 @@
 import gc
-import threading
 import torch
 import numpy as np
 from typing import List
@@ -10,9 +9,9 @@ from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 class EmbeddingService:
     """
-    سرویس Embedding با BGE-M3
-    - پشتیبانی از batch processing
-    - بهینه‌سازی برای CPU
+   ‫ سرویس Embedding با BGE-M3
+    -‫ پشتیبانی از batch processing
+    - ‫بهینه‌سازی برای CPU
     - مدیریت حافظه
     """
 
@@ -28,7 +27,7 @@ class EmbeddingService:
         self._load_model()
 
     def _load_model( self ):
-        """بارگذاری مدل BGE-M3"""
+        """ ‫بارگذاری مدل BGE-M3"""
         try:
             log_message( LG.DataProcessing, f"در حال بارگذاری مدل {self.model_name}...", LogLevel.INFO )
 
@@ -37,7 +36,7 @@ class EmbeddingService:
                                               token=settings.EMBEDDING_MODEL_TOKEN,
                                               trust_remote_code=True )
 
-            # بهینه‌سازی برای CPU
+            #‫ بهینه‌سازی برای CPU
             if self.device == "cpu":
                 torch.set_num_threads( settings.EMBEDDING_CPU_THREADS )
                 log_message( LG.DataProcessing, "تنظیمات CPU optimization اعمال شد", LogLevel.DEBUG )
@@ -93,7 +92,7 @@ class EmbeddingService:
 
     def embed_batch( self, texts: List[ str ], normalize: bool = True, show_progress: bool = False ) -> np.ndarray:
         """
-        ساخت embedding برای چندین متن (batch)
+       ‫ ساخت embedding برای چندین متن (batch)
         
         Args:
             texts: لیست متن‌ها
@@ -127,13 +126,13 @@ class EmbeddingService:
                 log_message( LG.DataProcessing, "مدل بارگذاری نشده است", LogLevel.ERROR )
                 raise RuntimeError( "مدل بارگذاری نشده است" )
 
-            # ساخت embeddings با batch
+            #‫ ساخت embeddings با batch
             embeddings_valid = self.model.encode( valid_texts,
                                                   batch_size=self.batch_size,
                                                   normalize_embeddings=normalize,
                                                   show_progress_bar=show_progress )
 
-            # ساخت آرایه نهایی با zero vectors برای متن‌های خالی
+            # ‫ساخت آرایه نهایی با zero vectors برای متن‌های خالی
             embeddings = np.zeros( ( len( texts ), self.vector_dim ) )
             for idx, valid_idx in enumerate( valid_indices ):
                 embeddings[ valid_idx ] = embeddings_valid[ idx ]
@@ -151,14 +150,14 @@ class EmbeddingService:
 
     def embed_chunks( self, chunks: List[ dict ], content_field: str = "content" ) -> List[ dict ]:
         """
-        ساخت embedding برای لیست chunks
+        ‫ ساخت embedding برای لیست chunks
         
         Args:
             chunks: لیست chunks (هر chunk یک dict)
             content_field: نام فیلد محتوا در chunk
             
         Returns:
-            همان chunks با اضافه شدن فیلد 'embedding'
+           ‫ همان chunks با اضافه شدن فیلد 'embedding'
         """
         try:
             if not chunks:
@@ -170,10 +169,10 @@ class EmbeddingService:
 
             log_message( LG.DataProcessing, f"ساخت embeddings برای {len(texts)} chunk...", LogLevel.INFO )
 
-            # ساخت embeddings
+            #‫ ساخت embeddings
             embeddings = self.embed_batch( texts, normalize=True, show_progress=False )
 
-            # اضافه کردن به chunks
+            # ‫اضافه کردن به chunks
             for chunk, embedding in zip( chunks, embeddings ):
                 # تبدیل به list برای قطع reference
                 chunk[ 'embedding' ] = embedding.tolist()
@@ -187,12 +186,12 @@ class EmbeddingService:
             raise
 
     def get_embedding_dimension( self ) -> int:
-        """بازگشت dimension مدل"""
+        """‫ بازگشت dimension مدل"""
         return self.vector_dim
 
     def calculate_similarity( self, embedding1: np.ndarray, embedding2: np.ndarray, are_normalized: bool = True ) -> float:
         """
-        محاسبه cosine similarity بین دو embedding
+       ‫ محاسبه cosine similarity بین دو embedding
         
         Args:
             embedding1: اولین embedding
@@ -200,11 +199,11 @@ class EmbeddingService:
             are_normalized: آیا embeddings از قبل normalized هستند؟ (default: True)
             
         Returns:
-            similarity score (-1 تا 1، هرچه نزدیک‌تر به 1 باشد شباهت بیشتر است)
+            ‫similarity score (-1 تا 1، هرچه نزدیک‌تر به 1 باشد شباهت بیشتر است)
         """
 
         try:
-            # تبدیل به numpy اگه list بود
+            # ‫تبدیل به numpy اگه list بود
             if isinstance( embedding1, list ):
                 embedding1 = np.array( embedding1 )
             if isinstance( embedding2, list ):
@@ -215,10 +214,10 @@ class EmbeddingService:
                 raise ValueError( f"ابعاد embeddings یکسان نیست: {embedding1.shape} vs {embedding2.shape}" )
 
             if are_normalized:
-                # برای normalized embeddings فقط dot product کافیه
+                #‫ برای normalized embeddings فقط dot product کافیه
                 return float( np.dot( embedding1, embedding2 ) )
             else:
-                # محاسبه کامل cosine similarity
+                # ‫محاسبه کامل cosine similarity
                 norm1 = np.linalg.norm( embedding1 )
                 norm2 = np.linalg.norm( embedding2 )
 
@@ -233,7 +232,7 @@ class EmbeddingService:
             return 0.0
 
     def cleanup( self ):
-        """آزادسازی حافظه مدل (فقط در حالت single-thread یا بعد از اتمام کارها)"""
+        """‫ آزادسازی حافظه مدل (فقط در حالت single-thread یا بعد از اتمام کارها)"""
         if self.model is not None:
             try:
                 del self.model
@@ -247,34 +246,3 @@ class EmbeddingService:
                 log_message( LG.DataProcessing, "🧹 حافظه مدل تخلیه شد", LogLevel.INFO )
             except Exception as e:
                 log_message( LG.DataProcessing, f"خطا در cleanup: {e}", LogLevel.ERROR )
-
-
-_embedding_service_instance = None
-_lock = threading.Lock()
-
-
-def get_embedding_service() -> EmbeddingService:
-    """
-    Singleton pattern با thread safety
-    """
-    global _embedding_service_instance
-
-    if _embedding_service_instance is None:
-        with _lock:
-            # Double-check locking
-            if _embedding_service_instance is None:
-                _embedding_service_instance = EmbeddingService()
-
-    return _embedding_service_instance
-
-
-def reset_embedding_service():
-    """
-    ریست کامل سرویس و آزادسازی حافظه
-    """
-    global _embedding_service_instance
-
-    with _lock:          # حتماً قفل بگیرید تا در حین حذف کسی درخواست ندهد
-        if _embedding_service_instance is not None:
-            _embedding_service_instance.cleanup()          # فراخوانی متد جدید
-            _embedding_service_instance = None

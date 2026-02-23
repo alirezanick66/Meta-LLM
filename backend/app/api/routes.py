@@ -12,12 +12,10 @@ from fastapi.concurrency import run_in_threadpool
 from backend.app.schemas.api_schemas import ( ChatRequest, ChatResponse, ChatMetadata, UsageInfo, Source, SystemStats,
                                               LLMProvider )
 from backend.app.db.postgres import PostgresManager
-from backend.app.api.dependencies import get_hybrid_retriever, get_llm_orchestrator
+from backend.app.api.dependencies import get_hybrid_retriever, get_llm_orchestrator, get_qdrant_manager, get_bm25_indexer
 from backend.app.services.retrieval.hybrid_retriever import HybridRetriever
 from backend.app.services.llm.llm_orchestrator import LLMOrchestrator
 from backend.app.utils.logging_config import log_message, LG, LogLevel
-from backend.app.db.qdrant_client import get_qdrant_manager
-from backend.app.services.retrieval.bm25_indexer import BM25Indexer
 from backend.app.services.document.indexing_pipeline import IndexingPipeline
 from backend.app.services.document.indexing_pipeline import IndexingPipeline
 from backend.app.services.document.document_processor import SUPPORTED_EXTENSIONS
@@ -32,7 +30,7 @@ router = APIRouter( prefix="/api", tags=[ "API" ] )
               response_model=ChatResponse,
               status_code=status.HTTP_200_OK,
               summary="ارسال سوال و دریافت پاسخ",
-              description="Endpoint اصلی برای چت با سیستم RAG" )
+              description="چت با سیستم" )
 async def chat(
     request: ChatRequest,
     db: Session = Depends( get_db ),
@@ -129,9 +127,13 @@ async def get_stats( db: Session = Depends( get_db ) ) -> SystemStats:
 
         def fetch_all_stats() -> tuple:
             qdrant_manager = get_qdrant_manager()
-            bm25_indexer = BM25Indexer()
-            return ( qdrant_manager.get_collection_info(), bm25_indexer.get_stats(), pg_manager.get_total_documents_count(),
-                     pg_manager.get_total_chunks_count() )
+            bm25_indexer = get_bm25_indexer()
+            return (
+                qdrant_manager.get_collection_info(),
+                bm25_indexer.get_stats(),
+                pg_manager.get_total_documents_count(),
+                pg_manager.get_total_chunks_count(),
+            )
 
         qdrant_info, bm25_stats, total_docs, total_chunks = await run_in_threadpool( fetch_all_stats )
 
@@ -187,10 +189,9 @@ async def upload_document(
 
     log_message( LG.API, f"📁 فایل '{file.filename}' ذخیره شد", LogLevel.INFO )
 
-    # ✅ اصلاح شده: مدیریت صحیح سشن دیتابیس در بک‌گراند
     def run_indexing():
         # ایجاد یک سشن کاملاً جدید و مستقل برای ترد بک‌گراند
-        # با استفاده از context manager مطمئن می‌شویم که سشن حتماً بسته می‌شود
+        # ‫با استفاده از context manager مطمئن می‌شویم که سشن حتماً بسته می‌شود
         with SessionLocal() as bg_db:
             try:
                 pipeline = IndexingPipeline( bg_db )
@@ -241,7 +242,7 @@ async def index_folder() -> Dict[ str, Any ]:
 @router.get(
     "/documents",
     status_code=status.HTTP_200_OK,
-    summary="لیست اسناد index شده",
+    summary=" ‫لیست اسناد index شده",
 )
 async def list_documents( db: Session = Depends( get_db ) ) -> Dict[ str, Any ]:
     """دریافت لیست همه اسناد index‌شده در سیستم"""
@@ -287,10 +288,11 @@ async def bulk_delete( body: dict ) -> Dict[ str, Any ]:
                 pipeline._delete_document_data( doc_id, rebuild_bm25=False )
             # یک بار BM25 rebuild در پایان
             all_chunks = pg_manager.get_all_chunks()
+            bm25_indexer = get_bm25_indexer()
             if all_chunks:
-                pipeline.bm25_indexer.rebuild_from_database( all_chunks )
+                bm25_indexer.rebuild_from_database( all_chunks )
             else:
-                pipeline.bm25_indexer.delete_index()
+                bm25_indexer.delete_index()
 
     await run_in_threadpool( run )
     return { "success": True, "deleted": len( ids ) }

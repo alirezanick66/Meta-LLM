@@ -2,7 +2,6 @@ from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass
 import re
 from backend.app.utils.logging_config import log_message, LG, LogLevel
-from backend.app.services.tokenizer_service import tokenizer_service
 
 
 # ==================== Data Classes ====================
@@ -57,12 +56,11 @@ class PromptBuilder:
         r"\b(?:تو (?:کی|چی) هستی|اسم[ ت] (?:چیه|چیست))\b",          # گروه دوم: هر جایی در متن
         re.IGNORECASE )
 
-    def __init__(
-        self,
-        system_prompt: Optional[ str ] = None,
-        include_sources: bool = True,
-        max_context_tokens: int = 3000,
-    ):
+    def __init__( self,
+                  tokenizer_service,
+                  system_prompt: Optional[ str ] = None,
+                  include_sources: bool = True,
+                  max_context_tokens: int = 3000 ):
         self.tokenizer = tokenizer_service
         self.system_prompt = system_prompt or self.DEFAULT_SYSTEM_PROMPT
         self.include_sources = include_sources
@@ -171,5 +169,9 @@ class PromptBuilder:
         )
 
 
-def create_prompt_builder( include_sources: bool = True, max_context_tokens: int = 3000 ) -> PromptBuilder:
-    return PromptBuilder( include_sources=include_sources, max_context_tokens=max_context_tokens )
+def create_prompt_builder( tokenizer_service, include_sources: bool = True, max_context_tokens: int = 3000 ) -> PromptBuilder:
+    return PromptBuilder(
+        tokenizer_service=tokenizer_service,
+        include_sources=include_sources,
+        max_context_tokens=max_context_tokens,
+    )

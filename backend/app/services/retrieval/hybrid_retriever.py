@@ -303,39 +303,3 @@ class HybridRetriever:
             "rrf_k": self.rrf_k,
             "parallel_execution": self.use_parallel,
         }
-
-
-def create_hybrid_retriever(
-    bm25_top_k: int = 20,
-    vector_top_k: int = 20,
-    final_top_k: int = 20,
-    rrf_k: int = 60,
-    use_parallel: bool = True,
-) -> HybridRetriever:
-    """
-    ساخت instance از HybridRetriever
-    
-    Args:
-        bm25_top_k: تعداد نتایج BM25
-        vector_top_k: تعداد نتایج Vector
-        final_top_k: تعداد نتایج نهایی
-        rrf_k: ثابت RRF
-        use_parallel: اجرای موازی (پیشنهادی: True)
-        
-    Returns:
-        HybridRetriever instance
-    """
-    from backend.app.services.retrieval.vector_retriever import create_vector_retriever
-
-    bm25_indexer = BM25Indexer()
-    vector_retriever = create_vector_retriever( top_k=vector_top_k )
-
-    return HybridRetriever(
-        bm25_indexer=bm25_indexer,
-        vector_retriever=vector_retriever,
-        bm25_top_k=bm25_top_k,
-        vector_top_k=vector_top_k,
-        final_top_k=final_top_k,
-        rrf_k=rrf_k,
-        use_parallel=use_parallel,
-    )

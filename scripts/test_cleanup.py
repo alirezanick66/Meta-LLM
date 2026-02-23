@@ -7,7 +7,7 @@ import argparse
 # اضافه کردن مسیر پروژه
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
-from backend.app.db.qdrant_client import get_qdrant_manager
+from backend.app.api.dependencies import get_qdrant_manager
 from backend.app.services.retrieval.bm25_indexer import BM25Indexer
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 from backend.app.core.config import settings
@@ -50,8 +50,7 @@ def run_alembic_upgrade() -> bool:
             venv_python = Path( ".venv/Scripts/python.exe" )
 
         if not venv_python.exists():
-            log_message( LG.Database, "⚠️ Virtual environment پیدا نشد، از python سیستم استفاده می‌کنیم",
-                         LogLevel.WARNING )
+            log_message( LG.Database, "⚠️ Virtual environment پیدا نشد، از python سیستم استفاده می‌کنیم", LogLevel.WARNING )
             command = "alembic upgrade head"
         else:
             command = f"{venv_python} -m alembic upgrade head"

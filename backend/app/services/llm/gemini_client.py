@@ -153,7 +153,7 @@ class GeminiClient:
                 elif role not in [ "user", "model" ]:
                     role = "user"
 
-                history_contents.append( { "role": role, "parts": [ msg.get( "content", "" ) ] } )
+                history_contents.append( { "role": role, "parts": [ types.Part( text=msg.get( "content", "" ) ) ] } )
 
             config = types.GenerateContentConfig(
                 temperature=temperature if temperature is not None else self.default_temp,

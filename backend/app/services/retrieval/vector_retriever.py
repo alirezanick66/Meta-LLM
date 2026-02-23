@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
-from backend.app.db.qdrant_client import QdrantManager
-from backend.app.services.embedding_service import EmbeddingService
+from backend.app.services.vector.qdrant_client import QdrantManager
+from backend.app.services.embedding.embedding_service import EmbeddingService
 from backend.app.utils.custom_normalizer import persian_normalizer
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
@@ -140,8 +140,7 @@ class VectorRetriever:
                     ResultKeys.SCORE: float( result[ ResultKeys.SCORE ] ),
                     ResultKeys.RETRIEVAL_METHOD: "vector",
                     ResultKeys.METADATA: result.get( ResultKeys.METADATA, {} ),
-                } for result in qdrant_results
-                if result[ ResultKeys.SCORE ] >= threshold          # فیلتر بر اساس threshold
+                } for result in qdrant_results if result[ ResultKeys.SCORE ] >= threshold          # فیلتر بر اساس threshold
             ]
 
             # لاگ تعداد نتایج فیلتر شده
@@ -174,28 +173,3 @@ class VectorRetriever:
             "qdrant_collection": self.qdrant.collection_name,
             "embedding_dim": self.embedding_service.get_embedding_dimension(),
         }
-
-
-def create_vector_retriever( top_k: int = 20, score_threshold: float = 0.5 ) -> VectorRetriever:
-    """
-    ساخت instance از VectorRetriever
-    
-    Args:
-        top_k: تعداد نتایج برتر
-        score_threshold: حداقل score برای قبول نتیجه
-        
-    Returns:
-        VectorRetriever instance
-    """
-    from backend.app.db.qdrant_client import get_qdrant_manager
-    from backend.app.services.embedding_service import get_embedding_service
-
-    qdrant_manager = get_qdrant_manager()
-    embedding_service = get_embedding_service()
-
-    return VectorRetriever(
-        qdrant_manager=qdrant_manager,
-        embedding_service=embedding_service,
-        top_k=top_k,
-        score_threshold=score_threshold,
-    )
