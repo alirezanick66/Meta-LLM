@@ -177,8 +177,4 @@ if __name__ == "__main__":
 
     log_message( LG.API, "🚀 Starting uvicorn server...", LogLevel.INFO )
 
-    uvicorn.run( "backend.app.main:app",
-                 host=settings.API_HOST,
-                 port=settings.API_PORT,
-                 reload=settings.API_RELOAD,
-                 log_level="info" )
+    uvicorn.run( "backend.app.main:app", host=settings.API_HOST, port=settings.API_PORT, reload=settings.API_RELOAD, log_level="info" )

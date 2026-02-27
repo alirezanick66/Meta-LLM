@@ -10,7 +10,6 @@ SUPPORTED_EXTENSIONS = {
     '.md': 'markdown',
     '.markdown': 'markdown',
     '.docx': 'word',
-    '.doc': 'word',
 }
 
 
@@ -20,19 +19,15 @@ class DocumentProcessor:
     """
 
     def __init__( self ):
-        self.extractors = { 'markdown': markdown_extractor, 'word': word_extractor }
-
-        #‫ ‫یه بار ساختته میشه، نه هر بار extract
         self._extract_methods = {
             'markdown': lambda path: markdown_extractor.extract_from_markdown( path ),
             'word': lambda path: word_extractor.extract_from_word( path ),
         }
-
-    log_message( LG.DataProcessing, "DocumentProcessor آماده شد", LogLevel.INFO )
+        log_message( LG.DataProcessing, "DocumentProcessor آماده شد", LogLevel.INFO )
 
     def extract( self, file_path: str ) -> Tuple[ str, Dict ]:
         """
-        استخراج متن از هر فرمت پشتیبانی‌شده
+        استخراج متن با فرمت پشتیبانی‌شده
 
         Args:
             file_path: مسیر فایل

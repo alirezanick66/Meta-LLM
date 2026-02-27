@@ -5,7 +5,7 @@ from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 def calculate_file_hash( file_path: str ) -> str:
     """
-    محاسبه SHA-256 hash  فایل
+   ‫ محاسبه SHA-256 hash  
     برای تشخیص تغییرات فایل
     
     Args:

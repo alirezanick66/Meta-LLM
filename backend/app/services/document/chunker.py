@@ -2,18 +2,19 @@ import re
 from typing import List, Dict, Any
 from langchain_text_splitters import RecursiveCharacterTextSplitter, MarkdownHeaderTextSplitter
 from backend.app.core.config import settings
+from backend.app.services.embedding.tokenizer_service import TokenizerService
 from backend.app.utils.logging_config import log_message, LG, LogLevel
-from backend.app.api.dependencies import get_tokenizer_service
 
 
-# ==========================================
-#  Chunker
-# ==========================================
 class MarkdownChunker:
+    """
+    ‫1- دریافت فایل markdown
+    ‫2- تقسیم بر اساس هدر ها
+    """
 
-    def __init__( self ):
-        self._tokenizer = get_tokenizer_service()
-        # 1. تقسیم بر اساس هدرها
+    def __init__( self, tokenizer_service: TokenizerService ):
+        self._tokenizer = tokenizer_service
+        # ‫1. تقسیم بر اساس هدرها
         self.md_splitter = MarkdownHeaderTextSplitter( headers_to_split_on=[
             ( "#", "Header 1" ),
             ( "##", "Header 2" ),
@@ -21,7 +22,7 @@ class MarkdownChunker:
             ( "####", "Header 4" ),
         ] )
 
-        # 2. تقسیم بر اساس طول توکن
+        # ‫2. تقسیم بر اساس طول توکن
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.CHUNK_SIZE,
             chunk_overlap=settings.CHUNK_OVERLAP,
@@ -30,76 +31,94 @@ class MarkdownChunker:
         )
 
     def _get_header_string( self, metadata: Dict, include_breadcrumb: bool = False ) -> str:
-        """ساخت هدر تمیز برای تزریق"""
+        """
+        ‫ساخت رشته hierarchy از هدرهای markdown
+        
+        Args:
+            ‫metadata: دیکشنری هدرهای استخراج‌شده توسط MarkdownHeaderTextSplitter
+           ‫ include_breadcrumb: اگر True باشد، کل مسیر هدر نگه داشته می‌شود
+        Returns:
+           ‫ رشته‌ای مثل 'فصل اول > بخش دوم > زیربخش'
+        """
         h1 = metadata.get( "Header 1", "" )
         h2 = metadata.get( "Header 2", "" )
         h3 = metadata.get( "Header 3", "" )
+        h4 = metadata.get( "Header 4", "" )
 
         if h1 and ">" in h1 and not include_breadcrumb:
-            # فقط آخرین بخش رو بگیر (title واقعی)
+            #‫ ‫فقط آخرین بخش رو بگیر (title واقعی)
             h1 = h1.split( ">" )[ -1 ].strip()
 
-        parts = [ p for p in [ h1, h2, h3 ] if p ]
+        parts = [ p for p in [ h1, h2, h3, h4 ] if p ]
         return " > ".join( parts )
 
     def _detect_list( self, text: str ) -> bool:
-        return bool( re.search( r'^[\-\*\+]\s+', text, re.MULTILINE ) )
+        return bool( re.search( r'^([\-\*\+]|\d+\.)\s+', text, re.MULTILINE ) )
 
     def create_chunks( self, markdown_text: str, doc_id: int, source_file: str ) -> List[ Dict[ str, Any ] ]:
+        """
+       ‫ ‫تبدیل متن markdown به chunks آماده برای indexing
+    
+        Args:
+            ‫markdown_text: متن نرمال‌شده markdown
+            ‫doc_id: شناسه سند در PostgreSQL
+            ‫source_file: نام فایل منبع
+        Returns:
+           ‫ لیست chunk ها، هر chunk شامل: chunk_id، content، token_count، metadata
+        """
 
-        md_docs = self.md_splitter.split_text( markdown_text )
-        final_chunks = []
+        try:
+            md_docs = self.md_splitter.split_text( markdown_text )
+            final_chunks = []
 
-        # استفاده از شمارنده سراسری در متد
-        global_chunk_index = 0
+            # استفاده از شمارنده سراسری در متد
+            global_chunk_index = 0
 
-        for doc in md_docs:
-            content_raw = doc.page_content
-            md_metadata = doc.metadata
+            for doc in md_docs:
+                content_raw = doc.page_content
+                md_metadata = doc.metadata
 
-            if not content_raw.strip():
-                continue
+                if not content_raw.strip():
+                    continue
 
-            # تقسیم متن طولانی
-            if self._tokenizer.count_tokens( content_raw ) > settings.CHUNK_SIZE:
-                sub_chunks = self.text_splitter.split_text( content_raw )
-            else:
-                sub_chunks = [ content_raw ]
+                # تقسیم متن طولانی
+                if self._tokenizer.count_tokens( content_raw ) > settings.CHUNK_SIZE:
+                    sub_chunks = self.text_splitter.split_text( content_raw )
+                else:
+                    sub_chunks = [ content_raw ]
 
-            header_str = self._get_header_string( md_metadata )
-            title = md_metadata.get( "Header 1" )
-            section = md_metadata.get( "Header 2" )
-            subsection = md_metadata.get( "Header 3" )
-            hierarchy = header_str
+                header_str = self._get_header_string( md_metadata )
+                section = md_metadata.get( "Header 2" )
+                subsection = md_metadata.get( "Header 3" )
+                hierarchy = header_str
 
-            heading_level = 0
-            if subsection: heading_level = 3
-            elif section: heading_level = 2
-            elif title: heading_level = 1
+                heading_level = 0
+                if subsection: heading_level = 3
+                elif section: heading_level = 2
 
-            # اصلاح حلقه:
-            for sub_text in sub_chunks:
-                clean_text = re.sub( r'^#{1,6}\s+', '', sub_text, flags=re.MULTILINE )
-                final_content = clean_text
+                # اصلاح حلقه:
+                for sub_text in sub_chunks:
+                    final_content = sub_text
 
-                chunk_data = {
-                    "chunk_id": f"doc_{doc_id}_chunk_{global_chunk_index:03d}",          # ✅ ID یکتا
-                    "content": final_content,
-                    "token_count": self._tokenizer.count_tokens( final_content ),
-                    "word_count": self._tokenizer.count_words( final_content ),
-                    "metadata": {
-                        "document_id": doc_id,
-                        "source": source_file,
-                        "title": title,
-                        "section": section,
-                        "subsection": subsection,
-                        "hierarchy": hierarchy,
-                        "chunk_index": global_chunk_index,
-                        "has_list": self._detect_list( sub_text ),
-                        "heading_level": heading_level
+                    chunk_data = {
+                        "chunk_id": f"doc_{doc_id}_chunk_{global_chunk_index:03d}",          # ✅ ID یکتا
+                        "content": final_content,
+                        "token_count": self._tokenizer.count_tokens( final_content ),
+                        "metadata": {
+                            "document_id": doc_id,
+                            "source": source_file,
+                            "section": section,
+                            "subsection": subsection,
+                            "hierarchy": hierarchy,
+                            "chunk_index": global_chunk_index,
+                            "has_list": self._detect_list( sub_text ),
+                            "heading_level": heading_level
+                        }
                     }
-                }
-                final_chunks.append( chunk_data )
-                global_chunk_index += 1          # ⭐ افزایش شمارنده سراسری
+                    final_chunks.append( chunk_data )
+                    global_chunk_index += 1          # ⭐ افزایش شمارنده سراسری
 
-        return final_chunks
+            return final_chunks
+        except Exception as e:
+            log_message( LG.DataProcessing, f"❌ خطا در chunking سند {source_file}: {str(e)}", LogLevel.ERROR )
+            raise

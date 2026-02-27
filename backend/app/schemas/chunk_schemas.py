@@ -8,7 +8,6 @@ class ChunkMetadata( BaseModel ):
     document_id: int
     source: str
     chunk_index: int
-    title: str | None = None
     section: str | None = None
     subsection: str | None = None
     hierarchy: str | None = None

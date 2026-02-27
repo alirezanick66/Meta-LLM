@@ -6,7 +6,7 @@ from backend.app.services.document.document_processor import document_processor
 from backend.app.services.document.chunker import MarkdownChunker
 from backend.app.utils.hash_utils import calculate_file_hash
 from backend.app.utils.logging_config import LG, LogLevel, log_message
-from backend.app.api.dependencies import get_embedding_service, get_qdrant_indexer, get_bm25_indexer
+from backend.app.api.dependencies import get_embedding_service, get_qdrant_indexer, get_bm25_indexer, get_tokenizer_service
 
 
 class IndexingPipeline:
@@ -21,7 +21,7 @@ class IndexingPipeline:
     def __init__( self, db_session: Session ):
         self.db = PostgresManager( db_session )
         self.processor = document_processor
-        self.chunker = MarkdownChunker()
+        self.chunker = MarkdownChunker( tokenizer_service=get_tokenizer_service() )
         self.embedding_service = get_embedding_service()
         self.qdrant_indexer = get_qdrant_indexer()
         self.bm25_indexer = get_bm25_indexer()
@@ -255,7 +255,6 @@ class IndexingPipeline:
                 'total_chunks': self.db.get_total_chunks_count(),
                 'qdrant_stats': self.qdrant_indexer.get_stats(),
                 'bm25_stats': self.bm25_indexer.get_stats(),
-                'supported_formats': list( self.processor.extractors.keys() ),
             }
         except Exception as e:
             log_message( LG.DataProcessing, f"خطا در دریافت آمار: {str(e)}", LogLevel.ERROR )
