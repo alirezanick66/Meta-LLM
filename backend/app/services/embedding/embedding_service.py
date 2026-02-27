@@ -31,10 +31,12 @@ class EmbeddingService:
         try:
             log_message( LG.DataProcessing, f"در حال بارگذاری مدل {self.model_name}...", LogLevel.INFO )
 
-            self.model = SentenceTransformer( settings.EMBEDDING_MODEL_PATH,
-                                              device=self.device,
-                                              token=settings.EMBEDDING_MODEL_TOKEN,
-                                              trust_remote_code=True )
+            self.model = SentenceTransformer(
+                settings.EMBEDDING_MODEL_PATH,
+                device=self.device,
+                token=settings.EMBEDDING_MODEL_TOKEN,
+                trust_remote_code=True,
+            )
 
             #‫ بهینه‌سازی برای CPU
             if self.device == "cpu":
@@ -50,8 +52,7 @@ class EmbeddingService:
                              LogLevel.WARNING )
                 self.vector_dim = actual_dim
 
-            log_message( LG.DataProcessing, f"✅ مدل بارگذاری شد - Device: {self.device}, Dimension: {self.vector_dim}",
-                         LogLevel.INFO )
+            log_message( LG.DataProcessing, f"✅ مدل بارگذاری شد - Device: {self.device}, Dimension: {self.vector_dim}", LogLevel.INFO )
 
         except Exception as e:
             log_message( LG.DataProcessing, f"❌ خطا در بارگذاری مدل: {str(e)}", LogLevel.ERROR )

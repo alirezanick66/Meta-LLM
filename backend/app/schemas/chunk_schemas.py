@@ -3,7 +3,7 @@ from pydantic import ConfigDict
 
 
 class ChunkMetadata( BaseModel ):
-    """متادیتای chunk برای Qdrant"""
+    """ ‫برای چانک  Qdrant استفاده میشه """
     chunk_id: str
     document_id: int
     source: str

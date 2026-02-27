@@ -14,29 +14,20 @@ class PostgresManager:
         self.db = db
 
     # ==================== Document Operations ====================
-
     def create_document( self, filename: str, file_path: str, file_hash: str, total_chunks: int = 0 ) -> Document:
         """ایجاد سند جدید"""
         try:
-            doc = Document(
-                file_name=filename,
-                file_path=file_path,
-                file_hash=file_hash,
-                total_chunks=total_chunks,
-            )
+            doc = Document( file_name=filename, file_path=file_path, file_hash=file_hash, total_chunks=total_chunks )
             self.db.add( doc )
             self.db.commit()
             self.db.refresh( doc )
+
             log_message( LG.Database, f"✅ سند ایجاد شد: {filename}", LogLevel.INFO )
             return doc
         except Exception as e:
             self.db.rollback()
             log_message( LG.Database, f"❌ خطا در ایجاد سند: {str(e)}", LogLevel.ERROR )
             raise
-
-    def get_document_by_id( self, document_id: int ) -> Optional[ Document ]:
-        """دریافت سند با ‫ ID (بسیار سریع با استفاده از Session.get)"""
-        return self.db.get( Document, document_id )
 
     def get_document_by_hash( self, file_hash: str ) -> Optional[ Document ]:
         """ ‫دریافت سند با hash"""
@@ -56,6 +47,7 @@ class PostgresManager:
             # ‫استفاده از filter_by برای خوانایی بیشتر
             self.db.query( Document ).filter_by( id=document_id ).update( { "total_chunks": total_chunks } )
             self.db.commit()
+            log_message( LG.Database, f"✅ chunks count سند {document_id} آپدیت شد", LogLevel.INFO )
             return True
         except Exception as e:
             self.db.rollback()
@@ -68,41 +60,32 @@ class PostgresManager:
        ‫ chunks به دلیل Cascade در مدل DB خودکار حذف می‌شوند.
         """
         try:
-            result = self.db.query( Document ).filter_by( id=document_id ).delete()
-            self.db.commit()
-            if result:
+            doc = self.db.get( Document, document_id )
+            if doc:
+                self.db.delete( doc )
+                self.db.commit()
                 log_message( LG.Database, f"🗑️ سند {document_id} حذف شد", LogLevel.INFO )
-            return result > 0
+                return True
+            return False
         except Exception as e:
             self.db.rollback()
             log_message( LG.Database, f"❌ خطا در حذف سند: {str(e)}", LogLevel.ERROR )
             return False
 
     # ==================== Chunk Operations ====================
-
-    def create_chunk( self, document_id: int, chunk_id: str, content: str, chunk_index: int, token_count: int ) -> Chunk:
-        """ایجاد chunk جدید"""
+    def bulk_create_chunks( self, chunks_data: List[ Dict[ str, Any ] ] ) -> bool:
+        """ ‫ایجاد چندین chunk به صورت یکجا"""
         try:
-            chunk = Chunk( document_id=document_id,
-                           chunk_id=chunk_id,
-                           content=content,
-                           chunk_index=chunk_index,
-                           token_count=token_count )
-
-            self.db.add( chunk )
+            chunks_objects = [ Chunk( **data ) for data in chunks_data ]
+            self.db.add_all( chunks_objects )
             self.db.commit()
-            self.db.refresh( chunk )
-            return chunk
+
+            log_message( LG.Database, f"✅ {len(chunks_objects)} chunk ایجاد شد", LogLevel.INFO )
+            return True
         except Exception as e:
             self.db.rollback()
-            log_message( LG.Database, f"❌ خطا در ایجاد chunk: {str(e)}", LogLevel.ERROR )
+            log_message( LG.Database, f"❌ خطا در bulk create: {str(e)}", LogLevel.ERROR )
             raise
-
-    def get_chunk_content( self, chunk_id: str ) -> Optional[ str ]:
-        """
-        این متد حافظه و پهنای باند بسیار کمتری مصرف می‌کند چون کل آبجکت را لود نمی‌کند.
-        """
-        return self.db.query( Chunk.content ).filter_by( chunk_id=chunk_id ).scalar()
 
     def get_chunks_content_bulk( self, chunk_ids: List[ str ] ) -> Dict[ str, str ]:
         """ ‫دریافت محتوای چندین chunk به صورت یکجا"""
@@ -112,28 +95,19 @@ class PostgresManager:
         try:
             # انتخاب فقط دو ستون مورد نیاز برای سرعت بیشتر
             chunks = self.db.query( Chunk.chunk_id, Chunk.content ).filter( Chunk.chunk_id.in_( chunk_ids ) ).all()
+            return { cid: content for cid, content in chunks }          # تبدیل لیست تاپل‌ها به دیکشنری
 
-            # تبدیل لیست تاپل‌ها به دیکشنری
-            return { cid: content for cid, content in chunks }
         except Exception as e:
             log_message( LG.Database, f"❌ خطا در bulk get: {str(e)}", LogLevel.ERROR )
             return {}
 
-    def bulk_create_chunks( self, chunks_data: List[ Dict[ str, Any ] ] ) -> bool:
-        try:
-            chunks_objects = [ Chunk( **data ) for data in chunks_data ]
-            self.db.add_all( chunks_objects )
-            self.db.commit()
-            log_message( LG.Database, f"✅ {len(chunks_objects)} chunk ایجاد شد", LogLevel.INFO )
-            return True
-        except Exception as e:
-            self.db.rollback()
-            log_message( LG.Database, f"❌ خطا در bulk create: {str(e)}", LogLevel.ERROR )
-            raise
-
     def get_chunks_by_document( self, document_id: int ) -> List[ Chunk ]:
         """دریافت تمام ‫ chunks یک سند"""
         return self.db.query( Chunk ).filter_by( document_id=document_id ).order_by( Chunk.chunk_index ).all()
+
+    def get_all_chunks( self ) -> List[ Chunk ]:
+        """  ‫دریافت تمام chunks های همه مستندات"""
+        return self.db.query( Chunk ).all()
 
     def get_total_chunks_count( self ) -> int:
         """ ‫تعداد کل chunks"""
@@ -142,6 +116,3 @@ class PostgresManager:
     def get_total_documents_count( self ) -> int:
         """تعداد کل اسناد"""
         return self.db.query( func.count( Document.id ) ).scalar()
-
-    def get_all_chunks( self ) -> List[ Chunk ]:
-        return self.db.query( Chunk ).all()

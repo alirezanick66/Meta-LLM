@@ -5,12 +5,8 @@ from typing import Literal
 class Settings( BaseSettings ):
     """برای تنظیمات فایل پیکربندی برنامه استفاده می‌شود."""
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore",
-    )
+    model_config = SettingsConfigDict( env_file=".env", env_file_encoding="utf-8", case_sensitive=False )
+
     # ==================== API Keys ====================
     GEMINI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
@@ -24,6 +20,7 @@ class Settings( BaseSettings ):
     POSTGRES_DB: str = "meta_db"
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_ECHO: bool = False
 
     @property
     def postgres_url( self ) -> str:
@@ -76,7 +73,7 @@ class Settings( BaseSettings ):
 
     TEMPERATURE: float = 0.3          #میزان خلاقیت پاسخ‌ها از 0 تا 2
     MAX_TOKENS: int = 2048
-    LLM_TIMEOUT: int = 5
+    LLM_TIMEOUT: int = 30
 
 
 settings = Settings()

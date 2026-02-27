@@ -166,9 +166,9 @@ async def get_stats( db: Session = Depends( get_db ) ) -> SystemStats:
     description="آپلود فایل .md یا .docx و شروع خودکار indexing",
 )
 async def upload_document(
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    db: Session = Depends( get_db )          # این سشن فقط برای چک کردن سریع است، در بک‌گراند استفاده نمی‌شود
+        background_tasks: BackgroundTasks,
+        file: UploadFile = File(...),
+        db: Session = Depends( get_db )          # این سشن فقط برای چک کردن سریع است، در بک‌گراند استفاده نمی‌شود
 ) -> Dict[ str, Any ]:
     """
     آپلود فایل و indexing در background.

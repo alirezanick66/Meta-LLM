@@ -263,22 +263,14 @@ class IndexingPipeline:
 
     # ==================== Private Methods ====================
 
-    def _check_and_handle_existing( self,
-                                    filename: str,
-                                    file_hash: str,
-                                    skip_bm25_rebuild: bool = False ) -> tuple[ str, bool ]:
+    def _check_and_handle_existing( self, filename: str, file_hash: str, skip_bm25_rebuild: bool = False ) -> tuple[ str, bool ]:
         """
-        منطق Replace by Filename
-        
-        تغییر: پارامتر skip_bm25_rebuild اضافه شد.
+       ‫ منطق Replace by Filename
         """
+
         existing_by_hash = self.db.get_document_by_hash( file_hash )
         if existing_by_hash and str( existing_by_hash.file_name ) != str( filename ):
-            log_message(
-                LG.DataProcessing,
-                f"⚠️ محتوای '{filename}' با '{existing_by_hash.file_name}' یکیه — skip",
-                LogLevel.WARNING,
-            )
+            log_message( LG.DataProcessing, f"⚠️ محتوای '{filename}' با '{existing_by_hash.file_name}' یکیه — skip", LogLevel.WARNING )
             return 'skipped', False
 
         existing = self.db.get_document_by_filename( filename )
@@ -287,18 +279,12 @@ class IndexingPipeline:
             return 'new', True
 
         if str( existing.file_hash ) == str( file_hash ):
-            log_message(
-                LG.DataProcessing,
-                f"⏭️ فایل '{filename}' بدون تغییر است — skip",
-                LogLevel.WARNING,
-            )
+            log_message( LG.DataProcessing, f"⏭️ فایل '{filename}' بدون تغییر است — skip", LogLevel.WARNING )
             return 'skipped', False
 
-        # فایل تغییر کرده → جایگزین کن
+        # ‫فایل تغییر کرده → جایگزین کن
         log_message( LG.DataProcessing, f"🔄 فایل '{filename}' تغییر کرده — جایگزین می‌شود", LogLevel.INFO )
 
-        # تغییر در این خط: اگر در حالت Batch هستیم، rebuild_bm25 باید False باشد
-        # (نقیض skip_bm25_rebuild)
         should_rebuild_bm25 = not skip_bm25_rebuild
         self._delete_document_data( existing.id, rebuild_bm25=should_rebuild_bm25 )
 
@@ -306,11 +292,11 @@ class IndexingPipeline:
 
     def _delete_document_data( self, document_id: int, rebuild_bm25: bool = True ) -> None:
         """
-        حذف کامل یه document از همه store ها
+       ‫ حذف کامل یه document از همه store ها
         
-        تغییر: پارامتر rebuild_bm25 اضافه شد.
-        مقدار پیش‌فرض True است تا اگر این متد از جای دیگری (مثل دکمه delete در پنل ادمین) 
-        صدا زده شد، BM25 خود به خود آپدیت شود.
+       ‫ تغییر: پارامتر rebuild_bm25 اضافه شد.
+       ‫ مقدار پیش‌فرض True است تا اگر این متد از جای دیگری (مثل دکمه delete در پنل ادمین) 
+       ‫ صدا زده شد، BM25 خود به خود آپدیت شود.
         """
         try:
             log_message( LG.DataProcessing, f"🗑️ حذف document {document_id}...", LogLevel.INFO )

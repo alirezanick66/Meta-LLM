@@ -28,7 +28,7 @@ def get_embedding_service() -> EmbeddingService:
 
 @lru_cache( maxsize=1 )
 def get_tokenizer_service() -> TokenizerService:
-    """‫ Singleton instance از TokenizerService"""
+    """‫ Singleton instance از  ‫TokenizerService"""
     log_message( LG.API, "🔧 ساخت TokenizerService instance (Singleton)", LogLevel.INFO )
     return TokenizerService()
 

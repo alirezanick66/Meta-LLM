@@ -10,7 +10,6 @@ sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent.parent ) )
 
 from backend.app.core.config import settings
 from backend.app.core.database import Base
-from backend.app.db.models import Document, Chunk
 
 config = context.config
 config.set_main_option( "sqlalchemy.url", settings.postgres_url )
