@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Tuple, TYPE_CHECKING
+from typing import Dict, List, Tuple
 
 from docx import Document
 from docx.oxml.ns import qn
@@ -7,8 +7,7 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 from backend.app.utils.custom_normalizer import persian_normalizer
 from backend.app.utils.logging_config import LG, LogLevel, log_message
-if TYPE_CHECKING:
-    from docx.document import Document as DocxDocument
+from docx.document import Document as DocxDocument
 
 
 class WordExtractor:

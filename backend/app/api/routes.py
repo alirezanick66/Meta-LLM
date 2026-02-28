@@ -10,14 +10,15 @@ from backend.app.core.database import get_db, SessionLocal
 from backend.app.core.config import settings
 from fastapi.concurrency import run_in_threadpool
 from backend.app.db.postgres import PostgresManager
-from backend.app.api.dependencies import get_hybrid_retriever, get_llm_orchestrator, get_qdrant_manager, get_bm25_indexer
+from backend.app.api.dependencies import ( get_embedding_service, get_hybrid_retriever, get_llm_orchestrator, get_qdrant_indexer,
+                                           get_qdrant_manager, get_bm25_indexer, get_tokenizer_service )
 from backend.app.schemas.api_schemas import SystemStats, UsageInfo
 from backend.app.schemas.base_schemas import LLMProvider
 from backend.app.schemas.chat_schemas import ChatMetadata, ChatRequest, ChatResponse, Source
+from backend.app.services.document.chunker import MarkdownChunker
 from backend.app.services.retrieval.hybrid_retriever import HybridRetriever
 from backend.app.services.llm.llm_orchestrator import LLMOrchestrator
 from backend.app.utils.logging_config import log_message, LG, LogLevel
-from backend.app.services.document.indexing_pipeline import IndexingPipeline
 from backend.app.services.document.indexing_pipeline import IndexingPipeline
 from backend.app.services.document.document_processor import SUPPORTED_EXTENSIONS
 import shutil
@@ -203,7 +204,13 @@ async def upload_document(
         # ‫با استفاده از context manager مطمئن می‌شویم که سشن حتماً بسته می‌شود
         with SessionLocal() as bg_db:
             try:
-                pipeline = IndexingPipeline( bg_db )
+                pipeline = IndexingPipeline(
+                    db_session=bg_db,
+                    embedding_service=get_embedding_service(),
+                    qdrant_indexer=get_qdrant_indexer(),
+                    bm25_indexer=get_bm25_indexer(),
+                    chunker=MarkdownChunker( tokenizer_service=get_tokenizer_service() ),
+                )
                 result = pipeline.index_document( str( dest_path ) )
                 log_message( LG.API, f"✅ Indexing تکمیل شد: {result}", LogLevel.INFO )
             except Exception as e:
@@ -231,7 +238,13 @@ async def index_folder() -> Dict[ str, Any ]:
 
     def run():
         with SessionLocal() as db:
-            pipeline = IndexingPipeline( db )
+            pipeline = IndexingPipeline(
+                db_session=db,
+                embedding_service=get_embedding_service(),
+                qdrant_indexer=get_qdrant_indexer(),
+                bm25_indexer=get_bm25_indexer(),
+                chunker=MarkdownChunker( tokenizer_service=get_tokenizer_service() ),
+            )
             return pipeline.index_folder( folder_path )
 
     result = await run_in_threadpool( run )
@@ -278,7 +291,13 @@ async def delete_document( document_id: int ) -> Dict[ str, Any ]:
 
     def run():
         with SessionLocal() as db:
-            pipeline = IndexingPipeline( db )
+            pipeline = IndexingPipeline(
+                db_session=db,
+                embedding_service=get_embedding_service(),
+                qdrant_indexer=get_qdrant_indexer(),
+                bm25_indexer=get_bm25_indexer(),
+                chunker=MarkdownChunker( tokenizer_service=get_tokenizer_service() ),
+            )
             pipeline._delete_document_data( document_id, rebuild_bm25=True )
 
     await run_in_threadpool( run )
@@ -291,7 +310,13 @@ async def bulk_delete( body: dict ) -> Dict[ str, Any ]:
 
     def run():
         with SessionLocal() as db:
-            pipeline = IndexingPipeline( db )
+            pipeline = IndexingPipeline(
+                db_session=db,
+                embedding_service=get_embedding_service(),
+                qdrant_indexer=get_qdrant_indexer(),
+                bm25_indexer=get_bm25_indexer(),
+                chunker=MarkdownChunker( tokenizer_service=get_tokenizer_service() ),
+            )
             pg_manager = PostgresManager( db )
             for doc_id in ids:
                 pipeline._delete_document_data( doc_id, rebuild_bm25=False )

@@ -4,41 +4,46 @@ from sqlalchemy.orm import Session
 from backend.app.db.postgres import PostgresManager
 from backend.app.services.document.document_processor import document_processor
 from backend.app.services.document.chunker import MarkdownChunker
+from backend.app.services.embedding.embedding_service import EmbeddingService
+from backend.app.services.retrieval.bm25_indexer import BM25Indexer
+from backend.app.services.vector.qdrant_indexer import QdrantIndexer
 from backend.app.utils.hash_utils import calculate_file_hash
 from backend.app.utils.logging_config import LG, LogLevel, log_message
-from backend.app.api.dependencies import get_embedding_service, get_qdrant_indexer, get_bm25_indexer, get_tokenizer_service
 
 
 class IndexingPipeline:
     """
-    Pipeline کامل indexing سند با پشتیبانی از چند فرمت
-
-    بهینه‌سازی‌ها:
-    - افزودن قابلیت غیرفعال‌سازی بازسازی BM25 برای پردازش دسته‌ای (Batch Processing).
-    - مدیریت بهتر Rollback در صورت بروز خطا.
+    ‫Pipeline کامل indexing سند با پشتیبانی از چند فرمت
     """
 
-    def __init__( self, db_session: Session ):
+    def __init__(
+        self,
+        db_session: Session,
+        embedding_service: EmbeddingService,
+        qdrant_indexer: QdrantIndexer,
+        bm25_indexer: BM25Indexer,
+        chunker: MarkdownChunker,
+    ):
         self.db = PostgresManager( db_session )
         self.processor = document_processor
-        self.chunker = MarkdownChunker( tokenizer_service=get_tokenizer_service() )
-        self.embedding_service = get_embedding_service()
-        self.qdrant_indexer = get_qdrant_indexer()
-        self.bm25_indexer = get_bm25_indexer()
+        self.chunker = chunker
+        self.embedding_service = embedding_service
+        self.qdrant_indexer = qdrant_indexer
+        self.bm25_indexer = bm25_indexer
         log_message( LG.DataProcessing, "IndexingPipeline آماده شد", LogLevel.INFO )
 
     # ==================== Public Methods ====================
 
     def index_document( self, file_path: str, skip_bm25_rebuild: bool = False ) -> Dict[ str, Any ]:
         """
-        اجرای کامل pipeline برای یک سند
+       ‫ اجرای کامل pipeline برای یک سند
 
         Args:
-            file_path: مسیر فایل (.md یا .docx)
-            skip_bm25_rebuild: اگر True باشد، BM25 بازسازی نمی‌شود (مفید برای پردازش پوشه)
+            ‫file_path: مسیر فایل (.md یا .docx)
+            ‫skip_bm25_rebuild: اگر True باشد، BM25 بازسازی نمی‌شود (مفید برای پردازش پوشه)
 
         Returns:
-            دیکشنری نتیجه با کلیدهای: success, document_id, filename,
+           ‫ دیکشنری نتیجه با کلیدهای: success, document_id, filename,
             total_chunks, total_tokens, action, error
         """
         document = None
@@ -77,11 +82,7 @@ class IndexingPipeline:
             if not normalized_text.strip():
                 raise ValueError( "متن استخراج‌شده خالی است" )
 
-            log_message(
-                LG.DataProcessing,
-                f"✅ متن استخراج شد - {len(normalized_text)} کاراکتر",
-                LogLevel.INFO,
-            )
+            log_message( LG.DataProcessing, f"✅ متن استخراج شد - {len(normalized_text)} کاراکتر", LogLevel.INFO )
 
             # ==================== مرحله ۲: ایجاد Document در DB ====================
             log_message( LG.DataProcessing, "💾 مرحله 2: ایجاد Document در PostgreSQL...", LogLevel.INFO )
@@ -115,7 +116,7 @@ class IndexingPipeline:
                 'document_id': document.id,
                 'chunk_id': chunk[ 'chunk_id' ],
                 'content': chunk[ 'content' ],
-                'chunk_index': chunk[ 'metadata' ][ 'chunk_index' ],
+                'chunk_index': chunk[ 'metadata' ].get( 'chunk_index', 0 ),
                 'token_count': chunk[ 'token_count' ],
             } for chunk in chunks_with_embeddings ]
 
@@ -132,18 +133,14 @@ class IndexingPipeline:
             log_message( LG.DataProcessing, "✅ Qdrant indexing انجام شد", LogLevel.INFO )
 
             # ==================== مرحله ۷: BM25 (Conditional) ====================
-            # بازسازی BM25 فقط اگر در حالت تک فایل هستیم انجام شود
+            # ‫بازسازی BM25 فقط اگر در حالت تک فایل هستیم انجام شود
             # برای پوشه، در پایان یکبار انجام می‌شود تا کارایی بالا برود
             if not skip_bm25_rebuild:
                 log_message( LG.DataProcessing, "📚 مرحله 7: بازسازی BM25 index...", LogLevel.INFO )
                 all_chunks = self.db.get_all_chunks()
                 if not self.bm25_indexer.rebuild_from_database( all_chunks ):
                     raise RuntimeError( "خطا در ساخت BM25 index" )
-                log_message(
-                    LG.DataProcessing,
-                    f"✅ BM25 بازسازی شد با {len(all_chunks)} chunk کل",
-                    LogLevel.INFO,
-                )
+                log_message( LG.DataProcessing, f"✅ BM25 بازسازی شد با {len(all_chunks)} chunk کل", LogLevel.INFO )
 
             # ==================== نتیجه ====================
             log_message( LG.DataProcessing, "=" * 70, LogLevel.INFO )
@@ -165,7 +162,7 @@ class IndexingPipeline:
         except Exception as e:
             log_message( LG.DataProcessing, f"❌ خطا در IndexingPipeline: {str(e)}", LogLevel.ERROR )
 
-            # Rollback — حذف document اگه ساخته شده بود
+            # ‫Rollback — حذف document اگه ساخته شده بود
             if document:
                 try:
                     log_message( LG.DataProcessing, f"🔄 Rollback - حذف document {document.id}...", LogLevel.ERROR )
@@ -202,15 +199,11 @@ class IndexingPipeline:
 
         summary = { 'total_found': len( files ), 'succeeded': 0, 'skipped': 0, 'replaced': 0, 'failed': 0, 'results': [] }
 
-        # پردازش فایل‌ها بدون بازسازی مداوم BM25
+        # ‫پردازش فایل‌ها بدون بازسازی مداوم BM25
         for i, file_info in enumerate( files, start=1 ):
-            log_message(
-                LG.DataProcessing,
-                f"\n📄 فایل {i}/{len(files)}: {file_info['name']}",
-                LogLevel.INFO,
-            )
+            log_message( LG.DataProcessing, f"\n📄 فایل {i}/{len(files)}: {file_info['name']}", LogLevel.INFO )
 
-            # ارسال skip_bm25_rebuild=True برای افزایش سرعت
+            # ‫ارسال skip_bm25_rebuild=True برای افزایش سرعت
             result = self.index_document( file_info[ 'path' ], skip_bm25_rebuild=True )
             result[ 'filename' ] = file_info[ 'name' ]
             summary[ 'results' ].append( result )
@@ -264,7 +257,7 @@ class IndexingPipeline:
 
     def _check_and_handle_existing( self, filename: str, file_hash: str, skip_bm25_rebuild: bool = False ) -> tuple[ str, bool ]:
         """
-       ‫ منطق Replace by Filename
+       ‫ منطق ‫Replace by Filename
         """
 
         existing_by_hash = self.db.get_document_by_hash( file_hash )
@@ -277,15 +270,14 @@ class IndexingPipeline:
         if not existing:
             return 'new', True
 
-        if str( existing.file_hash ) == str( file_hash ):
+        if existing.file_hash == file_hash:
             log_message( LG.DataProcessing, f"⏭️ فایل '{filename}' بدون تغییر است — skip", LogLevel.WARNING )
             return 'skipped', False
 
         # ‫فایل تغییر کرده → جایگزین کن
         log_message( LG.DataProcessing, f"🔄 فایل '{filename}' تغییر کرده — جایگزین می‌شود", LogLevel.INFO )
 
-        should_rebuild_bm25 = not skip_bm25_rebuild
-        self._delete_document_data( existing.id, rebuild_bm25=should_rebuild_bm25 )
+        self._delete_document_data( existing.id, rebuild_bm25=False )
 
         return 'replaced', True
 

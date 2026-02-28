@@ -90,7 +90,6 @@ class DocumentProcessor:
             if not file_path.is_file():
                 continue
 
-            # بررسی سریع پسوند مستقیماً از دیکشنری (بهینه‌تر از فراخوانی متد)
             suffix = file_path.suffix.lower()
             file_type = SUPPORTED_EXTENSIONS.get( suffix )
 

@@ -1,15 +1,12 @@
 import re
-from hazm import Normalizer as HazmNormalizer
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 
 class PersianNormalizer:
     """
     نرمال‌سازی پیشرفته متن فارسی
-    شامل fix کردن باگ‌های Hazm و بهینه‌سازی با str.translate
+   ‫ شامل fix کردن باگ‌های Hazm و بهینه‌سازی با str.translate
     """
-
-    # جدول نگاشت یکپارچه برای سرعت بیشتر (str.translate)
     # شامل حروف عربی، اعداد فارسی و عربی
     _CHAR_MAP = {
           # حروف عربی به فارسی
@@ -43,20 +40,14 @@ class PersianNormalizer:
         '٩': '9',
     }
 
-    # ساخت جدول ترجمه برای استفاده در متد translate
+    # ‫ساخت جدول ترجمه برای استفاده در متد translate
     _TRANS_TABLE = str.maketrans( _CHAR_MAP )
 
-    def __init__( self, use_hazm: bool = True ):
-        """
-        Args:
-            use_hazm: استفاده از Hazm به عنوان لایه اول
-        """
-        self.use_hazm = use_hazm
-        self.hazm_normalizer = HazmNormalizer() if use_hazm else None
-        log_message( LG.DataProcessing, f"Custom Persian Normalizer آماده شد (Hazm: {use_hazm})", LogLevel.INFO )
+    def __init__( self ):
+        log_message( LG.DataProcessing, f"Custom Persian Normalizer آماده شد ", LogLevel.INFO )
 
     def _fix_chars_and_numbers( self, text: str ) -> str:
-        """تبدیل یکپارچه حروف و اعداد با استفاده از translate (بسیار سریع)"""
+        """ ‫تبدیل یکپارچه حروف و اعداد با استفاده از translate (بسیار سریع)"""
         return text.translate( self._TRANS_TABLE )
 
     def _fix_zwnj( self, text: str ) -> str:
@@ -73,7 +64,6 @@ class PersianNormalizer:
 
     def _remove_diacritics( self, text: str ) -> str:
         """حذف اعراب"""
-        # استفاده از کلاس کاراکتری برای سرعت بیشتر
         return re.sub( r'[ًٌٍَُِّْ]', '', text )
 
     def _remove_kashida( self, text: str ) -> str:
@@ -82,9 +72,6 @@ class PersianNormalizer:
 
     def _fix_number_punctuation( self, text: str ) -> str:
         """اصلاح علائم در اعداد"""
-
-        # مخفف‌ها: U . S . A -> U.S.A
-        # text = re.sub( r'(\w)\s*\.\s*(\w)', r'\1.\2', text )
 
         # اعشار: 0 ٫ 5 -> 0.5
         text = re.sub( r'(\d)\s*٫\s*(\d)', r'\1.\2', text )
@@ -107,28 +94,27 @@ class PersianNormalizer:
         ترتیب اجرا بسیار مهم است تا نتیجه نهایی صحیح باشد.
         """
 
-        # 1. اضافه کردن فاصله بعد از علائم (اگر جا افتاده باشد)
+        # ‫1. اضافه کردن فاصله بعد از علائم (اگر جا افتاده باشد)
         # نکته: ما فقط بعد از علائم فاصله اضافه می‌کنیم.
-        # اصلاح باگ قبلی: شرط (?=\S) یعنی هر کاراکتر غیرفاصله (شامل عدد و حرف)
         text = re.sub( r'([.،؛!?])(?=\S)', r'\1 ', text )
 
-        # 2. اصلاح فاصله بعد از دو نقطه (با احتیاط برای لینک‌ها)
-        # اگر قبلش اسلش یا عدد نبود (برای جلوگیری از خراب کردن http:// یا ساعت 12:30)
+        # ‫2. اصلاح فاصله بعد از دو نقطه (با احتیاط برای لینک‌ها)
+        # ‫اگر قبلش اسلش یا عدد نبود (برای جلوگیری از خراب کردن http:// یا ساعت 12:30)
         text = re.sub( r'(?<![:/])(?<!\d):(?!\d)', r': ', text )
 
-        # 3. حذف فاصله قبل از علائم نگارشی (بسته شدن پرانتز، کاما، نقطه و ...)
+        # ‫3. حذف فاصله قبل از علائم نگارشی (بسته شدن پرانتز، کاما، نقطه و ...)
         # این کار باید بعد از مرحله 1 انجام شود تا تداخل نداشته باشد
         punctuations_no_space_before = r'([.,;:!?،؛ـ\)\]}"\'»«])'
         text = re.sub( rf'\s+{punctuations_no_space_before}', r'\1', text )
 
-        # 4. حذف فاصله بعد از علائم باز (پرانتز باز، گیومه باز)
+        # ‫4. حذف فاصله بعد از علائم باز (پرانتز باز، گیومه باز)
         text = re.sub( r'([(\["\'«])\s+', r'\1', text )
 
-        # 5. تبدیل چند فاصله پشت سر هم به یک فاصله (General Cleanup)
+        # ‫5. تبدیل چند فاصله پشت سر هم به یک فاصله (General Cleanup)
         # این کار باید در انتها انجام شود تا نتیجه مراحل بالا تمیز شود
         text = re.sub( r' +', ' ', text )
 
-        # 6. حذف فاصله‌های ابتدا و انتها
+        # ‫6. حذف فاصله‌های ابتدا و انتها
         text = text.strip()
 
         return text
@@ -141,25 +127,21 @@ class PersianNormalizer:
             if not text or not isinstance( text, str ):
                 return ""
 
-            # 1. Hazm (اگر فعال باشه) - معمولاً Hazm ابتدا کاراکترها را مرتب می‌کند
-            if self.use_hazm and self.hazm_normalizer:
-                text = self.hazm_normalizer.normalize( text )
-
-            # 2. تبدیل حروف عربی و اعداد (جایگزین حلقه‌های کند)
+            # ‫2. تبدیل حروف عربی و اعداد (جایگزین حلقه‌های کند)
             text = self._fix_chars_and_numbers( text )
 
-            # 3. اصلاح نیم‌فاصله
+            # ‫3. اصلاح نیم‌فاصله
             text = self._fix_zwnj( text )
 
-            # 4. حذف اعراب
+            # ‫4. حذف اعراب
             if remove_diacritics:
                 text = self._remove_diacritics( text )
 
-            # 5. حذف کشیده
+            # ‫5. حذف کشیده
             if remove_kashida:
                 text = self._remove_kashida( text )
 
-            # 6. اصلاح علائم در اعداد
+            # ‫6. اصلاح علائم در اعداد
             text = self._fix_number_punctuation( text )
 
             # 7. اضافه کردن فاصله بعد از علائم نگارشی
@@ -172,10 +154,6 @@ class PersianNormalizer:
             # بازگشت حداقلی متن تمیز شده در صورت خطا
             return " ".join( text.split() )
 
-    def normalize_query( self, query: str ) -> str:
-        """نرمال‌سازی مخصوص جستجو (احتمالاً سخت‌گیرانه‌تر)"""
-        return self.normalize( query, remove_diacritics=True, remove_kashida=True )
-
 
 # Instance سراسری
-persian_normalizer = PersianNormalizer( use_hazm=False )
+persian_normalizer = PersianNormalizer()

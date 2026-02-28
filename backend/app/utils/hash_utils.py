@@ -29,21 +29,3 @@ def calculate_file_hash( file_path: str ) -> str:
     except Exception as e:
         log_message( LG.DataProcessing, f"خطا در محاسبه هش فایل {file_path}: {str(e)}", LogLevel.ERROR )
         raise
-
-
-def verify_file_changed( file_path: str, old_hash: str ) -> bool:
-    """
-    بررسی تغییر فایل با مقایسه هش‌ها
-    
-    Args:
-        file_path: مسیر فایل
-        old_hash: هش قبلی
-        
-    Returns:
-        True اگر فایل تغییر کرده باشد
-    """
-    try:
-        new_hash = calculate_file_hash( file_path )
-        return new_hash != old_hash
-    except Exception:
-        return True          # در صورت خطا، فرض می‌کنیم فایل تغییر کرده

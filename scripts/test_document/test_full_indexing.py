@@ -7,6 +7,8 @@ sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 from backend.app.core.database import SessionLocal
 from backend.app.services.document.indexing_pipeline import IndexingPipeline
 from backend.app.utils.logging_config import log_message, LG, LogLevel
+from backend.app.api.dependencies import ( get_embedding_service, get_hybrid_retriever, get_llm_orchestrator, get_qdrant_indexer,
+                                           get_qdrant_manager, get_bm25_indexer, get_tokenizer_service )
 
 
 def test_full_indexing():
