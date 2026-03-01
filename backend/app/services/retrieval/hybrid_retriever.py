@@ -181,8 +181,8 @@ class HybridRetriever:
 
         return bm25_results, vector_results
 
-    def _apply_rrf( self, bm25_results: List[ Dict[ str, Any ] ],
-                    vector_results: List[ Dict[ str, Any ] ] ) -> List[ Dict[ str, Any ] ]:
+    def _apply_rrf( self, bm25_results: List[ Dict[ str, Any ] ], vector_results: List[ Dict[ str,
+                                                                                              Any ] ] ) -> List[ Dict[ str, Any ] ]:
         """
         اعمال Reciprocal Rank Fusion استاندارد (بدون وزن‌دهی)
         

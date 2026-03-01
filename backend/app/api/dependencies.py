@@ -36,7 +36,7 @@ def get_tokenizer_service() -> TokenizerService:
 @lru_cache( maxsize=1 )
 def get_qdrant_manager() -> QdrantManager:
     """‫ Singleton instance از QdrantManager"""
-    log_message( LG.API, "🔧 ساخت QdrantManager instance (Singleton)", LogLevel.INFO )
+    log_message( LG.API, "‫ساخت QdrantManager instance (Singleton)", LogLevel.INFO )
     return QdrantManager()
 
 

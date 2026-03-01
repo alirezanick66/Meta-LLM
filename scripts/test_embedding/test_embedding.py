@@ -3,7 +3,7 @@ import time
 import numpy as np
 from pathlib import Path
 
-sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
+sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent.parent ) )
 
 from backend.app.api.dependencies import get_embedding_service
 from backend.app.utils.logging_config import log_message, LG, LogLevel
@@ -48,42 +48,8 @@ try:
 except Exception as e:
     log_message( LG.DataProcessing, f"❌ خطا: {e}", LogLevel.ERROR )
 
-# ==================== تست 3: Similarity ====================
-log_message( LG.DataProcessing, "\n📝 تست 3: calculate_similarity", LogLevel.INFO )
-try:
-    text1 = "انقلاب اسلامی"
-    text2 = "انقلاب ایران"
-    text3 = "دندان سفید"
-    text4 = "انقلاب اسلامی"          # دقیقاً مثل text1
-
-    emb1 = embedding_service.embed_single( text1 )
-    emb2 = embedding_service.embed_single( text2 )
-    emb3 = embedding_service.embed_single( text3 )
-    emb4 = embedding_service.embed_single( text4 )
-
-    sim_12 = embedding_service.calculate_similarity( emb1, emb2 )
-    sim_13 = embedding_service.calculate_similarity( emb1, emb3 )
-    sim_14 = embedding_service.calculate_similarity( emb1, emb4 )
-
-    log_message( LG.DataProcessing, "✅ Similarity محاسبه شد:", LogLevel.INFO )
-    log_message( LG.DataProcessing, f"  - '{text1}' vs '{text2}': {sim_12:.4f} (باید بالا باشد)", LogLevel.INFO )
-    log_message( LG.DataProcessing, f"  - '{text1}' vs '{text3}': {sim_13:.4f} (باید پایین باشد)", LogLevel.INFO )
-    log_message( LG.DataProcessing, f"  - '{text1}' vs '{text4}': {sim_14:.4f} (باید ~1.0 باشد)", LogLevel.INFO )
-
-    # Assertions
-    assert sim_12 > 0.7, f"Similarity متون مشابه خیلی پایینه: {sim_12}"
-    assert sim_13 < 0.6, f"Similarity متون مختلف خیلی بالاست: {sim_13}"
-    assert sim_14 > 0.99, f"Similarity متن یکسان باید ~1.0 باشد: {sim_14}"
-
-    log_message( LG.DataProcessing, "  ✅ همه assertions پاس شدند", LogLevel.INFO )
-
-except AssertionError as e:
-    log_message( LG.DataProcessing, f"❌ Assertion failed: {e}", LogLevel.ERROR )
-except Exception as e:
-    log_message( LG.DataProcessing, f"❌ خطا: {e}", LogLevel.ERROR )
-
-# ==================== تست 4: Batch Embedding ====================
-log_message( LG.DataProcessing, "\n📝 تست 4: embed_batch", LogLevel.INFO )
+# ==================== تست 3: Batch Embedding ====================
+log_message( LG.DataProcessing, "\n📝 تست 3: embed_batch", LogLevel.INFO )
 try:
     texts = [
         "جمله اول",
@@ -114,8 +80,8 @@ try:
 except Exception as e:
     log_message( LG.DataProcessing, f"❌ خطا: {e}", LogLevel.ERROR )
 
-# ==================== تست 6: Embed Chunks ====================
-log_message( LG.DataProcessing, "\n📝 تست 6: embed_chunks", LogLevel.INFO )
+# ==================== تست 4: Embed Chunks ====================
+log_message( LG.DataProcessing, "\n📝 تست 4: embed_chunks", LogLevel.INFO )
 chunks = [
     {
         "chunk_id": "chunk_001",
@@ -127,8 +93,8 @@ chunks = [
     },
     {
         "chunk_id": "chunk_003",
-        "content": ""
-    },          # متن خالی
+        "content": ""          # متن خالی
+    },
     {
         "chunk_id": "chunk_004",
         "content": "امام خمینی رهبری انقلاب را بر عهده داشت"
@@ -164,8 +130,8 @@ except AssertionError as e:
 except Exception as e:
     log_message( LG.DataProcessing, f"❌ خطا: {e}", LogLevel.ERROR )
 
-# ==================== تست 8: Performance - Large Batch ====================
-log_message( LG.DataProcessing, "\n📝 تست 8: Performance - Large Batch", LogLevel.INFO )
+# ==================== تست 5: Performance - Large Batch ====================
+log_message( LG.DataProcessing, "\n📝 تست 5: Performance - Large Batch", LogLevel.INFO )
 try:
     large_texts = [ f"این متن شماره {i} برای تست performance است" for i in range( 100 ) ]
 
@@ -178,24 +144,6 @@ try:
     log_message( LG.DataProcessing, f"  - زمان کل: {elapsed:.3f}s", LogLevel.INFO )
     log_message( LG.DataProcessing, f"  - میانگین: {elapsed/len(large_texts)*1000:.2f}ms per text", LogLevel.INFO )
     log_message( LG.DataProcessing, f"  - Throughput: {len(large_texts)/elapsed:.1f} texts/second", LogLevel.INFO )
-
-except Exception as e:
-    log_message( LG.DataProcessing, f"❌ خطا: {e}", LogLevel.ERROR )
-
-# ==================== تست 9: Cleanup ====================
-log_message( LG.DataProcessing, "\n📝 تست 9: Cleanup & Reset", LogLevel.INFO )
-try:
-    log_message( LG.DataProcessing, "  - قبل از cleanup: model loaded", LogLevel.DEBUG )
-
-    # Test cleanup
-    embedding_service.cleanup()
-
-    if embedding_service.model is None:
-        log_message( LG.DataProcessing, "  ✅ Cleanup موفق (model = None)", LogLevel.INFO )
-    else:
-        log_message( LG.DataProcessing, "  ❌ Cleanup ناموفق!", LogLevel.ERROR )
-
-    log_message( LG.DataProcessing, "  ✅ مدل بعد از reset دوباره بارگذاری شد", LogLevel.INFO )
 
 except Exception as e:
     log_message( LG.DataProcessing, f"❌ خطا: {e}", LogLevel.ERROR )

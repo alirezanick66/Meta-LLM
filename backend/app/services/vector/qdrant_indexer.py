@@ -28,9 +28,6 @@ class QdrantIndexer:
             True در صورت موفقیت
         """
         try:
-            if not chunks:
-                log_message( LG.Database, "لیست chunks خالی است", LogLevel.WARNING )
-                return False
 
             log_message( LG.Database, f"شروع indexing {len(chunks)} chunk در Qdrant...", LogLevel.INFO )
 
@@ -40,6 +37,7 @@ class QdrantIndexer:
 
             # ‫شمارش خطاها برای batch logging
             error_counts = { 'missing_embedding': 0, 'validation_error': 0 }
+            first_validation_error: str | None = None
 
             for chunk in chunks:
                 try:
@@ -51,7 +49,7 @@ class QdrantIndexer:
                     # ‫ترکیب metadata با chunk_id برای validation
                     raw_metadata = { **chunk.get( 'metadata', {} ), 'chunk_id': chunk.get( 'chunk_id' ) }
 
-                    # ‫Validation با Pydantic (خود Pydantic فیلتر می‌کنه)
+                    # ‫Validation با Pydantic
                     validated = ChunkMetadata.model_validate( raw_metadata )
 
                     # اضافه به لیست‌های معتبر
@@ -62,8 +60,8 @@ class QdrantIndexer:
                 except ValidationError as e:
                     error_counts[ 'validation_error' ] += 1
                     #‫ فقط اولین خطا رو log کن برای debug
-                    if error_counts[ 'validation_error' ] == 1:
-                        log_message( LG.Database, f"نمونه خطای validation: {e.json()}", LogLevel.DEBUG )
+                    if first_validation_error is None:
+                        first_validation_error = e.json()
 
             # Batch logging برای خطاها
             total_errors = sum( error_counts.values() )
@@ -73,12 +71,15 @@ class QdrantIndexer:
                     f"فاقد embedding: {error_counts['missing_embedding']}, "
                     f"خطای validation: {error_counts['validation_error']}", LogLevel.WARNING )
 
-            # اگه هیچ chunk معتبری نبود، fail کن
+            if first_validation_error:
+                log_message( LG.Database, f"نمونه اول خطای validation: {first_validation_error}", LogLevel.DEBUG )
+
+            # ‫اگه هیچ chunk معتبری نبود، fail کن
             if not valid_ids:
                 log_message( LG.Database, "❌ هیچ chunk معتبری برای indexing وجود ندارد", LogLevel.ERROR )
                 return False
 
-            # ذخیره در Qdrant
+            # ‫ذخیره در Qdrant
             success = self.qdrant.insert_vectors( chunk_ids=valid_ids, embeddings=valid_embeddings, metadata=valid_metadata )
 
             if success:
@@ -94,7 +95,7 @@ class QdrantIndexer:
 
     def delete_document_vectors( self, document_id: int ) -> bool:
         """
-        حذف تمام vectors مربوط به یک document
+       ‫ حذف تمام vectors مربوط به یک document
         
         Args:
             document_id: شناسه document
@@ -103,8 +104,6 @@ class QdrantIndexer:
             True در صورت موفقیت
         """
         try:
-            log_message( LG.Database, f"حذف vectors مربوط به document {document_id}...", LogLevel.INFO )
-
             success = self.qdrant.delete_by_document( document_id )
 
             if success:

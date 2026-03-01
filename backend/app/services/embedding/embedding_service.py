@@ -1,4 +1,3 @@
-import gc
 import torch
 import numpy as np
 from typing import List
@@ -9,10 +8,9 @@ from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 class EmbeddingService:
     """
-   ‫ سرویس Embedding با BGE-M3
+  ‫سرویس Embedding با ‫gte-multilingual
     -‫ پشتیبانی از batch processing
     - ‫بهینه‌سازی برای CPU
-    - مدیریت حافظه
     """
 
     def __init__( self ):
@@ -23,13 +21,18 @@ class EmbeddingService:
         self.device = settings.EMBEDDING_DEVICE
         self.batch_size = settings.EMBEDDING_BATCH_SIZE
         self.model = None
-        self.vector_dim = settings.EMBEDDING_VECTOR_DIM
+        self.vector_dim: int = settings.EMBEDDING_VECTOR_DIM
         self._load_model()
 
     def _load_model( self ):
-        """ ‫بارگذاری مدل BGE-M3"""
+        """‫بارگذاری مدل embedding"""
         try:
             log_message( LG.DataProcessing, f"در حال بارگذاری مدل {self.model_name}...", LogLevel.INFO )
+
+            #‫ بهینه‌سازی برای CPU
+            if self.device == "cpu":
+                torch.set_num_threads( settings.EMBEDDING_CPU_THREADS )
+                log_message( LG.DataProcessing, "تنظیمات CPU optimization اعمال شد", LogLevel.DEBUG )
 
             self.model = SentenceTransformer(
                 settings.EMBEDDING_MODEL_PATH,
@@ -38,14 +41,8 @@ class EmbeddingService:
                 trust_remote_code=True,
             )
 
-            #‫ بهینه‌سازی برای CPU
-            if self.device == "cpu":
-                torch.set_num_threads( settings.EMBEDDING_CPU_THREADS )
-                log_message( LG.DataProcessing, "تنظیمات CPU optimization اعمال شد", LogLevel.DEBUG )
-
             # تست مدل
-            test_embedding = self.model.encode( "تست" )
-            actual_dim = len( test_embedding )
+            actual_dim = self.model.get_sentence_embedding_dimension() or settings.EMBEDDING_VECTOR_DIM
 
             if actual_dim != self.vector_dim:
                 log_message( LG.DataProcessing, f"⚠️ تغییر dimension: انتظار {self.vector_dim}، دریافت {actual_dim}",
@@ -67,7 +64,7 @@ class EmbeddingService:
             normalize: نرمال‌سازی vector (برای cosine similarity)
             
         Returns:
-            numpy array با dimension 1024
+            numpy array با dimension 768
         """
         try:
             if not text or not text.strip():
@@ -77,13 +74,7 @@ class EmbeddingService:
             if self.model is None:
                 raise RuntimeError( "مدل بارگذاری نشده است" )
 
-            embedding = self.model.encode( text, normalize_embeddings=normalize, show_progress_bar=False )
-
-            # Convert to numpy array if it's a tensor
-            if isinstance( embedding, torch.Tensor ):
-                embedding = embedding.cpu().numpy()
-            elif not isinstance( embedding, np.ndarray ):
-                embedding = np.array( embedding )
+            embedding = self.model.encode( text, normalize_embeddings=normalize, convert_to_numpy=True )
 
             return embedding
 
@@ -101,7 +92,7 @@ class EmbeddingService:
             show_progress: نمایش progress bar
             
         Returns:
-            numpy array
+            numpy array با shape (len(texts), vector_dim)
         """
         if not texts:
             log_message( LG.DataProcessing, "لیست متن‌ها خالی است", LogLevel.WARNING )
@@ -109,13 +100,8 @@ class EmbeddingService:
 
         try:
             # شناسایی متن‌های معتبر
-            valid_indices = []
-            valid_texts = []
-
-            for i, text in enumerate( texts ):
-                if text and text.strip():
-                    valid_indices.append( i )
-                    valid_texts.append( text )
+            valid_indices = [ i for i, t in enumerate( texts ) if t and t.strip() ]
+            valid_texts = [ texts[ i ] for i in valid_indices ]
             # اگه هیچ متن معتبری نبود
             if not valid_texts:
                 log_message( LG.DataProcessing, "هیچ متن معتبری برای embedding وجود ندارد", LogLevel.WARNING )
@@ -131,6 +117,7 @@ class EmbeddingService:
             embeddings_valid = self.model.encode( valid_texts,
                                                   batch_size=self.batch_size,
                                                   normalize_embeddings=normalize,
+                                                  convert_to_numpy=True,
                                                   show_progress_bar=show_progress )
 
             # ‫ساخت آرایه نهایی با zero vectors برای متن‌های خالی
@@ -151,35 +138,25 @@ class EmbeddingService:
 
     def embed_chunks( self, chunks: List[ dict ], content_field: str = "content" ) -> List[ dict ]:
         """
-        ‫ ساخت embedding برای لیست chunks
-        
+        ‫ساخت embedding برای لیست chunks و اضافه کردن به هر chunk
+
         Args:
-            chunks: لیست chunks (هر chunk یک dict)
-            content_field: نام فیلد محتوا در chunk
-            
+            chunks: لیست chunks با فیلد content
+            content_field: نام فیلد محتوا
         Returns:
-           ‫ همان chunks با اضافه شدن فیلد 'embedding'
+            همان chunks با فیلد 'embedding' اضافه‌شده
         """
         try:
             if not chunks:
-                log_message( LG.DataProcessing, "لیست chunks خالی است", LogLevel.WARNING )
                 return []
 
-            # استخراج محتواها
             texts = [ chunk.get( content_field, "" ) for chunk in chunks ]
+            embeddings = self.embed_batch( texts, normalize=True )
 
-            log_message( LG.DataProcessing, f"ساخت embeddings برای {len(texts)} chunk...", LogLevel.INFO )
-
-            #‫ ساخت embeddings
-            embeddings = self.embed_batch( texts, normalize=True, show_progress=False )
-
-            # ‫اضافه کردن به chunks
             for chunk, embedding in zip( chunks, embeddings ):
-                # تبدیل به list برای قطع reference
                 chunk[ 'embedding' ] = embedding.tolist()
 
-            log_message( LG.DataProcessing, f"✅ embeddings به chunks اضافه شد", LogLevel.INFO )
-
+            log_message( LG.DataProcessing, f"✅ embeddings به {len(chunks)} chunk اضافه شد", LogLevel.INFO )
             return chunks
 
         except Exception as e:
@@ -187,63 +164,5 @@ class EmbeddingService:
             raise
 
     def get_embedding_dimension( self ) -> int:
-        """‫ بازگشت dimension مدل"""
+        """ ‫‫ بازگشت dimension مدل"""
         return self.vector_dim
-
-    def calculate_similarity( self, embedding1: np.ndarray, embedding2: np.ndarray, are_normalized: bool = True ) -> float:
-        """
-       ‫ محاسبه cosine similarity بین دو embedding
-        
-        Args:
-            embedding1: اولین embedding
-            embedding2: دومین embedding
-            are_normalized: آیا embeddings از قبل normalized هستند؟ (default: True)
-            
-        Returns:
-            ‫similarity score (-1 تا 1، هرچه نزدیک‌تر به 1 باشد شباهت بیشتر است)
-        """
-
-        try:
-            # ‫تبدیل به numpy اگه list بود
-            if isinstance( embedding1, list ):
-                embedding1 = np.array( embedding1 )
-            if isinstance( embedding2, list ):
-                embedding2 = np.array( embedding2 )
-
-            # چک ابعاد
-            if embedding1.shape != embedding2.shape:
-                raise ValueError( f"ابعاد embeddings یکسان نیست: {embedding1.shape} vs {embedding2.shape}" )
-
-            if are_normalized:
-                #‫ برای normalized embeddings فقط dot product کافیه
-                return float( np.dot( embedding1, embedding2 ) )
-            else:
-                # ‫محاسبه کامل cosine similarity
-                norm1 = np.linalg.norm( embedding1 )
-                norm2 = np.linalg.norm( embedding2 )
-
-                if norm1 == 0 or norm2 == 0:
-                    log_message( LG.DataProcessing, "⚠️ یکی از embeddings برابر صفر است", LogLevel.WARNING )
-                    return 0.0
-
-                return float( np.dot( embedding1, embedding2 ) / ( norm1 * norm2 ) )
-
-        except Exception as e:
-            log_message( LG.DataProcessing, f"خطا در محاسبه similarity: {str(e)}", LogLevel.ERROR )
-            return 0.0
-
-    def cleanup( self ):
-        """‫ آزادسازی حافظه مدل (فقط در حالت single-thread یا بعد از اتمام کارها)"""
-        if self.model is not None:
-            try:
-                del self.model
-                self.model = None
-
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-
-                gc.collect()
-
-                log_message( LG.DataProcessing, "🧹 حافظه مدل تخلیه شد", LogLevel.INFO )
-            except Exception as e:
-                log_message( LG.DataProcessing, f"خطا در cleanup: {e}", LogLevel.ERROR )

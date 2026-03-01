@@ -10,6 +10,7 @@ class QdrantManager:
     """
    ‫ مدیریت عملیات Qdrant Vector Store
     """
+    BATCH_SIZE = 100
 
     def __init__( self ):
         self.client: Optional[ QdrantClient ] = None
@@ -65,36 +66,48 @@ class QdrantManager:
             log_message( LG.Database, f"خطا در ایجاد کالکشن: {str(e)}", LogLevel.ERROR )
             raise
 
-    def insert_vectors( self, chunk_ids: List[ str ], embeddings: List[ List[ float ] ],
-                        metadata: List[ Dict[ str, Any ] ] ) -> bool:
+    def insert_vectors( self, chunk_ids: List[ str ], embeddings: List[ List[ float ] ], metadata: List[ Dict[ str, Any ] ] ) -> bool:
         """
         ‫ درج دسته‌جمعی vectors
-            """
+        """
         if self.client is None:
             log_message( LG.Database, "❌ Qdrant client اتصال برقرار نشده است", LogLevel.ERROR )
             return False
-        try:
-            points = []
-            for chunk_id, embedding, meta in zip( chunk_ids, embeddings, metadata ):
-                point = PointStruct( id=self._generate_point_id( chunk_id ),
-                                     vector=embedding,
-                                     payload={
-                                         "chunk_id": chunk_id,
-                                         **meta
-                                     } )
-                points.append( point )
 
-            self.client.upsert( collection_name=self.collection_name, points=points )
-            log_message( LG.Database, f"{len(points)} vector به Qdrant اضافه شد", LogLevel.INFO )
+        try:
+            total = 0
+            batch = []
+
+            for chunk_id, embedding, meta in zip( chunk_ids, embeddings, metadata ):
+                batch.append(
+                    PointStruct( id=self._generate_point_id( chunk_id ), vector=embedding, payload={
+                        "chunk_id": chunk_id,
+                        **meta
+                    } ) )
+
+                if len( batch ) >= self.BATCH_SIZE:
+                    self.client.upsert( collection_name=self.collection_name, points=batch )
+                    total += len( batch )
+                    batch = []
+
+            # ‫‫ارسال batch آخر
+            if batch:
+                self.client.upsert( collection_name=self.collection_name, points=batch )
+                total += len( batch )
+
+            log_message( LG.Database, f"✅ {total} vector به Qdrant اضافه شد", LogLevel.INFO )
             return True
+
         except Exception as e:
             log_message( LG.Database, f"خطا در درج vectors: {str(e)}", LogLevel.ERROR )
             return False
 
-    def search_vectors( self,
-                        query_vector: List[ float ],
-                        top_k: int = 20,
-                        document_id: Optional[ int ] = None ) -> List[ Dict[ str, Any ] ]:
+    def search_vectors(
+        self,
+        query_vector: List[ float ],
+        top_k: int = 20,
+        document_id: Optional[ int ] = None,
+    ) -> List[ Dict[ str, Any ] ]:
         """
            ‫ جستجوی semantic با vector
             
@@ -118,15 +131,11 @@ class QdrantManager:
                 with_payload=True,          # ← اضافه کن
             ).points          # خروجی این متد یک شیء است که فیلد points دارد
 
-            # تبدیل نتایج به format مناسب
+            # ‫تبدیل نتایج به format مناسب
             formatted_results = []
             for result in results:
                 payload = result.payload or {}
-                formatted_results.append( {
-                    "chunk_id": payload.get( "chunk_id" ),
-                    "score": result.score,
-                    "metadata": payload
-                } )
+                formatted_results.append( { "chunk_id": payload.get( "chunk_id" ), "score": result.score, "metadata": payload } )
 
             log_message( LG.Retrieval, f"{len(formatted_results)} نتیجه از Qdrant بازگردانده شد", LogLevel.DEBUG )
             return formatted_results
@@ -137,7 +146,8 @@ class QdrantManager:
     def delete_by_document( self, document_id: int ) -> bool:
         """ ‫حذف تمام vectors مربوط به یک document"""
         try:
-            assert self.client is not None, "Qdrant client متصل نیست"
+            if self.client is None:
+                raise RuntimeError( "Qdrant client متصل نیست" )
             self.client.delete(
                 collection_name=self.collection_name,
                 points_selector=Filter( must=[ FieldCondition( key="document_id", match=MatchValue( value=document_id ) ) ] ) )
@@ -150,13 +160,10 @@ class QdrantManager:
     def get_collection_info( self ) -> Dict[ str, Any ]:
         """ ‫دریافت اطلاعات collection"""
         try:
-            assert self.client is not None, "Qdrant client متصل نیست"
+            if self.client is None:
+                raise RuntimeError( "Qdrant client متصل نیست" )
             info = self.client.get_collection( self.collection_name )
-            return {
-                "points_count": info.points_count,          # ✅ این وجود داره
-                "vectors_count": info.points_count,          # ‫ همون points_count هست
-                "status": info.status
-            }
+            return { "vectors_count": info.points_count, "status": info.status }
         except Exception as e:
             log_message( LG.Database, f"خطا در دریافت اطلاعات کالکشن: {str(e)}", LogLevel.ERROR )
             return {}

@@ -74,8 +74,8 @@ def run_alembic_upgrade() -> bool:
 
 def cleanup_qdrant_and_bm25( restart_services: bool = True ):
     """
-    پاکسازی کامل Qdrant collection و BM25 index
-    به همراه restart سرویس‌های Docker و اجرای migration
+   ‫ پاکسازی کامل Qdrant collection و BM25 index
+   ‫ به همراه restart سرویس‌های Docker و اجرای migration
     
     Args:
         restart_services: اگر True باشه، سرویس‌ها رو restart می‌کنه
@@ -95,13 +95,13 @@ def cleanup_qdrant_and_bm25( restart_services: bool = True ):
         # مرحله 2: پاک کردن فایل‌های محلی
         log_message( LG.Database, "\n🔸 مرحله 2: پاک کردن فایل‌های محلی", LogLevel.INFO )
 
-        # پاک کردن BM25 index files
+        # ‫پاک کردن BM25 index files
         log_message( LG.Database, "🔹 پاک کردن BM25 index files...", LogLevel.INFO )
         bm25_indexer = BM25Indexer()
         bm25_indexer.delete_index()
         log_message( LG.Database, "✅ BM25 index files حذف شد", LogLevel.INFO )
 
-        # پاک کردن cache directory (اگر وجود داره)
+        # ‫پاک کردن cache directory (اگر وجود داره)
         cache_dir = Path( "./cache" )
         if cache_dir.exists():
             shutil.rmtree( cache_dir )
@@ -119,25 +119,25 @@ def cleanup_qdrant_and_bm25( restart_services: bool = True ):
             log_message( LG.Database, "⏳ صبر برای آماده شدن سرویس‌ها (20 ثانیه)...", LogLevel.INFO )
             time.sleep( 20 )
 
-            # اجرای alembic migration
+            # ‫اجرای alembic migration
             log_message( LG.Database, "\n🔸 مرحله 3.5: اجرای Database Migration", LogLevel.INFO )
             if not run_alembic_upgrade():
                 log_message( LG.Database, "⚠️ هشدار: مشکل در migration، ولی ادامه می‌دهیم...", LogLevel.WARNING )
 
-        # مرحله 4: پاکسازی Qdrant
+        # ‫مرحله 4: پاکسازی Qdrant
         log_message( LG.Database, "\n🔸 مرحله 4: پاکسازی Qdrant collection", LogLevel.INFO )
 
         qdrant_manager = get_qdrant_manager()
 
         if qdrant_manager.client:
             try:
-                # حذف collection
+                # ‫حذف collection
                 qdrant_manager.client.delete_collection( collection_name=settings.QDRANT_COLLECTION_NAME )
                 log_message( LG.Database, f"✅ Collection '{settings.QDRANT_COLLECTION_NAME}' حذف شد", LogLevel.INFO )
             except Exception as e:
                 log_message( LG.Database, f"⚠️ Collection وجود نداشت یا خطا: {str(e)}", LogLevel.WARNING )
 
-            # ساخت مجدد collection خالی
+            # ‫ساخت مجدد collection خالی
             qdrant_manager._create_collection_if_not_exists()
             log_message( LG.Database, "✅ Collection جدید (خالی) ساخته شد", LogLevel.INFO )
 
