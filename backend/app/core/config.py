@@ -58,7 +58,7 @@ class Settings( BaseSettings ):
     BM25_TOP_K: int = 20
     VECTOR_TOP_K: int = 20
     RERANKER_TOP_K: int = 5
-
+    BM25_CACHE_DIR: str = "backend/data/storage/bm25_cache"
     # ==================== FastAPI ====================
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000

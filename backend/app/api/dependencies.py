@@ -68,7 +68,6 @@ def get_hybrid_retriever() -> HybridRetriever:
         bm25_top_k=settings.BM25_TOP_K,
         vector_top_k=settings.VECTOR_TOP_K,
         final_top_k=settings.RERANKER_TOP_K,
-        use_parallel=True,
     )
 
 

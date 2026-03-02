@@ -1,7 +1,8 @@
 from typing import List, Dict, Any, Optional
 from collections import defaultdict
+from backend.app.schemas.retrieval_schemas import ResultKeys, RetrievalMethod, RRFKeys, RRFStats
 from backend.app.services.retrieval.bm25_indexer import BM25Indexer
-from backend.app.services.retrieval.vector_retriever import VectorRetriever, ResultKeys
+from backend.app.services.retrieval.vector_retriever import VectorRetriever
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -9,19 +10,14 @@ from concurrent.futures import ThreadPoolExecutor
 
 class HybridRetriever:
     """
-    ترکیب BM25 (keyword) و Vector (semantic) retrieval با Reciprocal Rank Fusion (RRF)
-    
-    ویژگی‌های جدید:
-    - اجرای موازی BM25 و Vector (با concurrent.futures)
-    - RRF استاندارد بدون double weighting
-    - Score threshold برای هر دو روش
+   ‫ ترکیب BM25 (keyword) و Vector (semantic) retrieval با Reciprocal Rank Fusion (RRF)
     
     RRF Formula (استاندارد):
     score(doc) = Σ (1 / (k + rank_i))
     
-    که در آن:
-    - k: ثابت (معمولاً 60)
-    - rank_i: رتبه document در هر retriever
+   ‫ که در آن:
+    - ‫k: ثابت (معمولاً 60)
+    - ‫rank_i: رتبه document در هر retriever
     """
 
     def __init__(
@@ -32,17 +28,15 @@ class HybridRetriever:
         vector_top_k: int = 20,
         final_top_k: int = 20,
         rrf_k: int = 60,
-        use_parallel: bool = True,
     ):
         """
         Args:
-            bm25_indexer: instance از BM25Indexer
-            vector_retriever: instance از VectorRetriever
-            bm25_top_k: تعداد نتایج BM25
-            vector_top_k: تعداد نتایج Vector
-            final_top_k: تعداد نتایج نهایی بعد از RRF
-            rrf_k: ثابت RRF (معمولاً 60)
-            use_parallel: اجرای موازی BM25 و Vector (default: True)
+            ‫bm25_indexer:‫ instance از BM25Indexer
+            ‫vector_retriever:‫ instance از VectorRetriever
+            ‫bm25_top_k: ‫تعداد نتایج BM25
+            ‫vector_top_k: ‫تعداد نتایج Vector
+            ‫final_top_k: ‫تعداد نتایج نهایی بعد از RRF
+            ‫rrf_k: ‫ثابت RRF (معمولاً 60)
         """
         self.bm25_indexer = bm25_indexer
         self.vector_retriever = vector_retriever
@@ -50,30 +44,20 @@ class HybridRetriever:
         self.vector_top_k = vector_top_k
         self.final_top_k = final_top_k
         self.rrf_k = rrf_k
-        self.use_parallel = use_parallel
 
         log_message( LG.Retrieval, "HybridRetriever آماده شد", LogLevel.INFO )
-        log_message(
-            LG.Retrieval,
-            f"  - BM25 Top-K: {bm25_top_k}, Vector Top-K: {vector_top_k}",
-            LogLevel.DEBUG,
-        )
-        log_message(
-            LG.Retrieval,
-            f"  - RRF k={rrf_k}, Parallel: {use_parallel}",
-            LogLevel.DEBUG,
-        )
+        log_message( LG.Retrieval, f"  - BM25 Top-K: {bm25_top_k}, Vector Top-K: {vector_top_k}, - RRF k={rrf_k}", LogLevel.DEBUG )
 
     def retrieve( self, query: str, final_top_k: Optional[ int ] = None ) -> List[ Dict[ str, Any ] ]:
         """
-        جستجوی Hybrid با RRF
+       ‫ جستجوی Hybrid با RRF
         
         Args:
             query: متن جستجوی کاربر
             final_top_k: تعداد نتایج نهایی (اختیاری)
             
         Returns:
-            لیست نتایج merged و re-ranked با فرمت:
+           ‫ لیست نتایج merged و re-ranked با فرمت:
             [
                 {
                     'chunk_id': str,
@@ -99,25 +83,17 @@ class HybridRetriever:
             log_message( LG.Retrieval, f"🔍 Hybrid Retrieval: '{query[:50]}...'", LogLevel.INFO )
             log_message( LG.Retrieval, "=" * 70, LogLevel.INFO )
 
-            # اجرای BM25 و Vector (موازی یا ترتیبی)
-            if self.use_parallel:
-                bm25_results, vector_results = self._retrieve_parallel( query )
-            else:
-                bm25_results, vector_results = self._retrieve_sequential( query )
+            bm25_results, vector_results = self._retrieve_parallel( query )
 
             # Reciprocal Rank Fusion
             log_message( LG.Retrieval, "🔀 مرحله 3: Reciprocal Rank Fusion...", LogLevel.INFO )
             merged_results = self._apply_rrf( bm25_results, vector_results )
 
-            # انتخاب Top-K نهایی
+            # ‫انتخاب Top-K نهایی
             final_results = merged_results[ :k ]
 
             log_message( LG.Retrieval, "=" * 70, LogLevel.INFO )
-            log_message(
-                LG.Retrieval,
-                f"✅ Hybrid Retrieval تکمیل شد - {len(final_results)} نتیجه نهایی",
-                LogLevel.INFO,
-            )
+            log_message( LG.Retrieval, f"✅ Hybrid Retrieval تکمیل شد - {len(final_results)} نتیجه نهایی", LogLevel.INFO )
             log_message( LG.Retrieval, "=" * 70, LogLevel.INFO )
 
             return final_results
@@ -128,24 +104,20 @@ class HybridRetriever:
 
     def _retrieve_parallel( self, query: str ) -> tuple[ List[ Dict[ str, Any ] ], List[ Dict[ str, Any ] ] ]:
         """
-        اجرای موازی BM25 و Vector با ThreadPoolExecutor
+       ‫ اجرای موازی BM25 و Vector با ThreadPoolExecutor
         
-        نکته: از concurrent.futures استفاده می‌کنیم چون:
-        - عملیات I/O bound هستن
-        - asyncio نیاز به تغییرات گسترده داره
-        - ThreadPool برای الان کافیه
+        نکته‫: از concurrent.futures استفاده می‌کنیم چون:
+        - ‫عملیات I/O bound هستن
+        - ‫asyncio نیاز به تغییرات گسترده داره
+        - ‫ThreadPool برای الان کافیه
         """
 
-        log_message(
-            LG.Retrieval,
-            "⚡ اجرای موازی BM25 و Vector...",
-            LogLevel.INFO,
-        )
+        log_message( LG.Retrieval, "⚡ اجرای موازی BM25 و Vector...", LogLevel.INFO )
 
         start_time = time.time()
 
         with ThreadPoolExecutor( max_workers=2 ) as executor:
-            # Submit کردن هر دو task
+            #‫ Submit کردن هر دو task
             future_bm25 = executor.submit( self.bm25_indexer.search, query, self.bm25_top_k )
             future_vector = executor.submit( self.vector_retriever.retrieve, query, self.vector_top_k )
 
@@ -161,30 +133,10 @@ class HybridRetriever:
 
         return bm25_results, vector_results
 
-    def _retrieve_sequential( self, query: str ) -> tuple[ List[ Dict[ str, Any ] ], List[ Dict[ str, Any ] ] ]:
-        """اجرای ترتیبی BM25 و Vector (fallback)"""
-
-        log_message( LG.Retrieval, "📚 مرحله 1: BM25 Retrieval...", LogLevel.INFO )
-        start_bm25 = time.time()
-        bm25_results = self.bm25_indexer.search( query, top_k=self.bm25_top_k )
-        bm25_time = time.time() - start_bm25
-        log_message( LG.Retrieval, f"  ✅ {len(bm25_results)} نتیجه ({bm25_time:.2f}s)", LogLevel.INFO )
-
-        log_message( LG.Retrieval, "🤖 مرحله 2: Vector Retrieval...", LogLevel.INFO )
-        start_vector = time.time()
-        vector_results = self.vector_retriever.retrieve( query, top_k=self.vector_top_k )
-        vector_time = time.time() - start_vector
-        log_message( LG.Retrieval, f"  ✅ {len(vector_results)} نتیجه ({vector_time:.2f}s)", LogLevel.INFO )
-
-        total_time = bm25_time + vector_time
-        log_message( LG.Retrieval, f"  ⏱️ زمان کل: {total_time:.2f}s (ترتیبی)", LogLevel.DEBUG )
-
-        return bm25_results, vector_results
-
     def _apply_rrf( self, bm25_results: List[ Dict[ str, Any ] ], vector_results: List[ Dict[ str,
                                                                                               Any ] ] ) -> List[ Dict[ str, Any ] ]:
         """
-        اعمال Reciprocal Rank Fusion استاندارد (بدون وزن‌دهی)
+       ‫ اعمال Reciprocal Rank Fusion استاندارد (بدون وزن‌دهی)
         
         فرمول RRF:
         score(doc) = Σ (1 / (k + rank_i))
@@ -194,75 +146,64 @@ class HybridRetriever:
             vector_results: نتایج Vector
             
         Returns:
-            لیست merged و sorted بر اساس RRF score
+           ‫ لیست merged و sorted بر اساس RRF score
         """
-        # ذخیره اطلاعات هر chunk
+        #‫ ذخیره اطلاعات هر chunk
         chunk_data: Dict[ str, Dict[ str, Any ] ] = defaultdict(
             lambda: {
                 ResultKeys.CHUNK_ID: None,
-                "bm25_score": None,
-                "vector_score": None,
-                "bm25_rank": None,
-                "vector_rank": None,
+                RRFKeys.BM25_SCORE: None,
+                RRFKeys.VECTOR_SCORE: None,
+                RRFKeys.BM25_RANK: None,
+                RRFKeys.VECTOR_RANK: None,
                 ResultKeys.RETRIEVAL_METHOD: list(),
                 ResultKeys.METADATA: {},
-                "rrf_score": 0.0,
+                RRFKeys.RRF_SCORE: 0.0,
             } )
 
-        # پردازش نتایج BM25
+        # ‫پردازش نتایج BM25
         for rank, result in enumerate( bm25_results, start=1 ):
             chunk_id = result[ ResultKeys.CHUNK_ID ]
             chunk = chunk_data[ chunk_id ]          # ‫یه بار reference میگیریم
             chunk[ ResultKeys.CHUNK_ID ] = chunk_id
-            chunk[ "bm25_score" ] = result[ ResultKeys.SCORE ]
-            chunk[ "bm25_rank" ] = rank
-            chunk[ ResultKeys.RETRIEVAL_METHOD ].append( "bm25" )
+            chunk[ RRFKeys.BM25_SCORE ] = result[ ResultKeys.SCORE ]
+            chunk[ RRFKeys.BM25_RANK ] = rank
+            chunk[ RRFKeys.RRF_SCORE ] += 1.0 / ( self.rrf_k + rank )
+            chunk[ ResultKeys.RETRIEVAL_METHOD ].append( RetrievalMethod.BM25 )
             chunk[ ResultKeys.METADATA ] = result.get( ResultKeys.METADATA, {} )
-            chunk[ "rrf_score" ] += 1.0 / ( self.rrf_k + rank )
 
-        # پردازش نتایج Vector
+        # ‫پردازش نتایج Vector
         for rank, result in enumerate( vector_results, start=1 ):
             chunk_id = result[ ResultKeys.CHUNK_ID ]
             chunk = chunk_data[ chunk_id ]          # ‫یه بار reference میگیریم
             chunk[ ResultKeys.CHUNK_ID ] = chunk_id
-            chunk[ "vector_score" ] = result[ ResultKeys.SCORE ]
-            chunk[ "vector_rank" ] = rank
+            chunk[ RRFKeys.VECTOR_SCORE ] = result[ ResultKeys.SCORE ]
+            chunk[ RRFKeys.VECTOR_RANK ] = rank
 
-            if "vector" not in chunk[ ResultKeys.RETRIEVAL_METHOD ]:
-                chunk[ ResultKeys.RETRIEVAL_METHOD ].append( "vector" )
+            if RetrievalMethod.VECTOR not in chunk[ ResultKeys.RETRIEVAL_METHOD ]:
+                chunk[ ResultKeys.RETRIEVAL_METHOD ].append( RetrievalMethod.VECTOR )
 
             if not chunk[ ResultKeys.METADATA ]:
                 chunk[ ResultKeys.METADATA ] = result.get( ResultKeys.METADATA, {} )
 
-            chunk[ "rrf_score" ] += 1.0 / ( self.rrf_k + rank )
+            chunk[ RRFKeys.RRF_SCORE ] += 1.0 / ( self.rrf_k + rank )
 
         # تبدیل به لیست و مرتب‌سازی
-        merged_results = sorted( chunk_data.values(), key=lambda x: x[ "rrf_score" ], reverse=True )
+        merged_results = sorted( chunk_data.values(), key=lambda x: x[ RRFKeys.RRF_SCORE ], reverse=True )
 
-        stats = { "both": 0, "only_bm25": 0, "only_vector": 0 }
+        stats = { RRFStats.BOTH: 0, RRFStats.ONLY_BM25: 0, RRFStats.ONLY_VECTOR: 0 }
         for r in merged_results:
             methods = r[ ResultKeys.RETRIEVAL_METHOD ]
             if len( methods ) == 2:
-                stats[ "both" ] += 1
-            elif methods == [ "bm25" ]:
-                stats[ "only_bm25" ] += 1
+                stats[ RRFStats.BOTH ] += 1
+            elif methods == [ RetrievalMethod.BM25 ]:
+                stats[ RRFStats.ONLY_BM25 ] += 1
             else:
-                stats[ "only_vector" ] += 1
+                stats[ RRFStats.ONLY_VECTOR ] += 1
 
         log_message( LG.Retrieval, f"  📊 RRF Stats:", LogLevel.INFO )
-        log_message( LG.Retrieval, f"     Both Methods: {stats['both']}", LogLevel.INFO )
-        log_message( LG.Retrieval, f"     Only BM25: {stats['only_bm25']}", LogLevel.INFO )
-        log_message( LG.Retrieval, f"     Only Vector: {stats['only_vector']}", LogLevel.INFO )
+        log_message( LG.Retrieval, f"     Both Methods: {stats[RRFStats.BOTH]}", LogLevel.INFO )
+        log_message( LG.Retrieval, f"     Only BM25: {stats[RRFStats.ONLY_BM25]}", LogLevel.INFO )
+        log_message( LG.Retrieval, f"     Only Vector: {stats[RRFStats.ONLY_VECTOR]}", LogLevel.INFO )
 
         return merged_results
-
-    def get_stats( self ) -> Dict[ str, Any ]:
-        """آمار HybridRetriever"""
-        return {
-            "method": "hybrid",
-            "bm25_top_k": self.bm25_top_k,
-            "vector_top_k": self.vector_top_k,
-            "final_top_k": self.final_top_k,
-            "rrf_k": self.rrf_k,
-            "parallel_execution": self.use_parallel,
-        }

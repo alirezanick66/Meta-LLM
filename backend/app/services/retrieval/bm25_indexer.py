@@ -4,14 +4,15 @@ from typing import List, Dict, Any, Optional
 from rank_bm25 import BM25Okapi
 from backend.app.utils.custom_normalizer import persian_normalizer
 from backend.app.utils.logging_config import log_message, LG, LogLevel
+from backend.app.core.config import settings
 import heapq
 
 
 class BM25Indexer:
     """
     مدیریت BM25 indexing برای جستجوی کلمات کلیدی
-    - ساخت index با rank_bm25
-    - ذخیره/بارگذاری از pickle
+    - ‫ساخت index با rank_bm25
+    - ‫ذخیره/بارگذاری از pickle
     - جستجوی سریع
     """
     PERSIAN_STOPWORDS = {
@@ -19,17 +20,13 @@ class BM25Indexer:
         'ولی', 'چون', 'اگر', 'تر', 'ترین', 'هر', 'خود'
     }
 
-    def __init__( self, cache_dir: str = "backend/data/storage/bm25_cache" ):
-        """
-        Args:
-            cache_dir: مسیر ذخیره‌سازی فایل‌های BM25
-        """
-        self.cache_dir = Path( cache_dir )
+    def __init__( self ):
+
+        self.cache_dir = Path( settings.BM25_CACHE_DIR )
         self.cache_dir.mkdir( parents=True, exist_ok=True )
 
         self.index_path = self.cache_dir / "bm25_index.pkl"
         self.mapping_path = self.cache_dir / "chunk_mapping.pkl"
-        self.metadata_path = self.cache_dir / "metadata.json"
 
         self.normalizer = persian_normalizer
         self.bm25_index: Optional[ BM25Okapi ] = None
@@ -134,17 +131,17 @@ class BM25Indexer:
             return False
 
     def load_index( self ) -> bool:
-        """بارگذاری index از دیسک"""
+        """ ‫بارگذاری index از دیسک"""
         try:
             if not self.index_path.exists() or not self.mapping_path.exists():
                 log_message( LG.Retrieval, "فایل‌های BM25 index وجود ندارند", LogLevel.WARNING )
                 return False
 
-            # بارگذاری BM25 index
+            # ‫بارگذاری BM25 index
             with open( self.index_path, 'rb' ) as f:
                 self.bm25_index = pickle.load( f )
 
-            # بارگذاری mapping
+            # ‫بارگذاری mapping
             with open( self.mapping_path, 'rb' ) as f:
                 mapping_data = pickle.load( f )
                 self.chunk_ids = mapping_data[ 'chunk_ids' ]
@@ -159,7 +156,7 @@ class BM25Indexer:
 
     def search( self, query: str, top_k: int = 20 ) -> List[ Dict[ str, Any ] ]:
         """
-        جستجوی BM25
+       ‫ جستجوی BM25
         
         Args:
             query: متن جستجو
@@ -169,13 +166,13 @@ class BM25Indexer:
             لیست نتایج با فرمت: [{'chunk_id': ..., 'score': ..., 'content': ...}, ...]
         """
         try:
-            if self.bm25_index is None:
+            if not self.load_index() or self.bm25_index is None:
                 log_message( LG.Retrieval, "BM25 index بارگذاری نشده است", LogLevel.WARNING )
                 # تلاش برای بارگذاری
                 if not self.load_index():
                     return []
 
-            # توکنایز query
+            #‫ توکنایز query
             query_tokens = self._tokenize( query )
 
             if not query_tokens:
@@ -185,7 +182,7 @@ class BM25Indexer:
             # محاسبه امتیازات
             scores = self.bm25_index.get_scores( query_tokens )          #type:ignore
 
-            # مرتب‌سازی و انتخاب top-k
+            # ‫مرتب‌سازی و انتخاب top-k
             top_indices = heapq.nlargest( top_k, range( len( scores ) ), key=lambda i: scores[ i ] )
 
             # ساخت نتایج
@@ -204,7 +201,7 @@ class BM25Indexer:
             return []
 
     def delete_index( self ) -> bool:
-        """حذف کامل index از دیسک"""
+        """ ‫حذف کامل index از دیسک"""
         try:
             if self.index_path.exists():
                 self.index_path.unlink()
@@ -223,7 +220,7 @@ class BM25Indexer:
             return False
 
     def get_stats( self ) -> Dict[ str, Any ]:
-        """آمار BM25 index"""
+        """ ‫آمار BM25 index"""
         return {
             'total_chunks': len( self.chunk_ids ),
             'index_loaded': self.bm25_index is not None,
@@ -232,10 +229,10 @@ class BM25Indexer:
 
     def rebuild_from_database( self, db_chunks: List ) -> bool:
         """
-        بازسازی کامل index از chunks دیتابیس
+       ‫ بازسازی کامل index از chunks دیتابیس
         
         Args:
-            db_chunks: لیست Chunk objects از PostgreSQL
+            ‫db_chunks: لیست Chunk objects از PostgreSQL
             
         Returns:
             True در صورت موفقیت
