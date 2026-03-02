@@ -79,9 +79,7 @@ class HybridRetriever:
 
             k = final_top_k if final_top_k is not None else self.final_top_k
 
-            log_message( LG.Retrieval, "=" * 70, LogLevel.INFO )
             log_message( LG.Retrieval, f"🔍 Hybrid Retrieval: '{query[:50]}...'", LogLevel.INFO )
-            log_message( LG.Retrieval, "=" * 70, LogLevel.INFO )
 
             bm25_results, vector_results = self._retrieve_parallel( query )
 
@@ -91,10 +89,7 @@ class HybridRetriever:
 
             # ‫انتخاب Top-K نهایی
             final_results = merged_results[ :k ]
-
-            log_message( LG.Retrieval, "=" * 70, LogLevel.INFO )
             log_message( LG.Retrieval, f"✅ Hybrid Retrieval تکمیل شد - {len(final_results)} نتیجه نهایی", LogLevel.INFO )
-            log_message( LG.Retrieval, "=" * 70, LogLevel.INFO )
 
             return final_results
 

@@ -56,8 +56,9 @@ def get_qdrant_indexer() -> QdrantIndexer:
 
 @lru_cache( maxsize=1 )
 def get_hybrid_retriever() -> HybridRetriever:
-    """‫ Singleton instance از HybridRetriever"""
+    """ ‫‫ Singleton instance از HybridRetriever"""
     log_message( LG.API, "🔧 ساخت HybridRetriever instance (Singleton)", LogLevel.INFO )
+
     return HybridRetriever(
         bm25_indexer=get_bm25_indexer(),
         vector_retriever=VectorRetriever(
