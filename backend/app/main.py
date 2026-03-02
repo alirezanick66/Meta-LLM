@@ -42,6 +42,7 @@ async def lifespan( app: FastAPI ):
         raise RuntimeError( f"Cannot start without Qdrant: {str(e)}" )
 
     log_message( LG.API, "⏳ در حال بارگذاری سرویس‌ها...", LogLevel.INFO )
+
     try:
         get_tokenizer_service()
         get_embedding_service()
@@ -49,6 +50,7 @@ async def lifespan( app: FastAPI ):
         get_llm_orchestrator()
         get_hybrid_retriever()
         log_message( LG.API, "✅ همه سرویس‌ها آماده‌اند", LogLevel.INFO )
+
     except Exception as e:
         log_message( LG.API, f"❌ خطا در بارگذاری سرویس‌ها: {str(e)}", LogLevel.ERROR )
         raise RuntimeError( f"Cannot start without services: {str(e)}" )
@@ -177,4 +179,8 @@ if __name__ == "__main__":
 
     log_message( LG.API, "🚀 Starting uvicorn server...", LogLevel.INFO )
 
-    uvicorn.run( "backend.app.main:app", host=settings.API_HOST, port=settings.API_PORT, reload=settings.API_RELOAD, log_level="info" )
+    uvicorn.run( "backend.app.main:app",
+                 host=settings.API_HOST,
+                 port=settings.API_PORT,
+                 reload=settings.API_RELOAD,
+                 log_level="info" )

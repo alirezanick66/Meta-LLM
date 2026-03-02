@@ -32,8 +32,6 @@ class MarkdownExtractor:
             with open( file_path, 'r', encoding='utf-8' ) as f:
                 raw_content = f.read()
 
-            log_message( LG.DataProcessing, f"فایل Markdown خوانده شد: {Path(file_path).name}", LogLevel.INFO )
-
             # پردازش محتوا
             processed_content = self._process_markdown( raw_content )
 

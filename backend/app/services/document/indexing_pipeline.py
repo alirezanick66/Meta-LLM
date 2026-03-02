@@ -13,7 +13,7 @@ from backend.app.utils.logging_config import LG, LogLevel, log_message
 
 class IndexingPipeline:
     """
-    ‫Pipeline کامل indexing سند با پشتیبانی از چند فرمت
+   ‫ ‫Pipeline کامل indexing سند با پشتیبانی از چند فرمت
     """
 
     def __init__(
@@ -66,7 +66,7 @@ class IndexingPipeline:
             filename = path.name
 
             # ==================== بررسی Replace ====================
-            action, should_continue = self._check_and_handle_existing( filename, file_hash, skip_bm25_rebuild )
+            action, should_continue = self._check_and_handle_existing( filename, file_hash )
             if not should_continue:
                 return {
                     'success': True,
@@ -111,7 +111,7 @@ class IndexingPipeline:
             # ==================== مرحله ۵: ذخیره در PostgreSQL ====================
             log_message( LG.DataProcessing, "💾 مرحله 5: ذخیره chunks در PostgreSQL...", LogLevel.INFO )
 
-            # استفاده از List Comprehension برای تمیزی
+            # ‫استفاده از List Comprehension برای تمیزی
             chunks_data = [ {
                 'document_id': document.id,
                 'chunk_id': chunk[ 'chunk_id' ],
@@ -135,6 +135,7 @@ class IndexingPipeline:
             # ==================== مرحله ۷: BM25 (Conditional) ====================
             # ‫بازسازی BM25 فقط اگر در حالت تک فایل هستیم انجام شود
             # برای پوشه، در پایان یکبار انجام می‌شود تا کارایی بالا برود
+
             if not skip_bm25_rebuild:
                 log_message( LG.DataProcessing, "📚 مرحله 7: بازسازی BM25 index...", LogLevel.INFO )
                 all_chunks = self.db.get_all_chunks()
@@ -155,7 +156,7 @@ class IndexingPipeline:
                 'file_type': self.processor.get_file_type( file_path ),
                 'total_chunks': len( chunks ),
                 'total_tokens': sum( c[ 'token_count' ] for c in chunks ),
-                'total_chunks_in_system': self.db.get_total_chunks_count(),          # استفاده از متد آمار به جای فچ کردن همه
+                'total_chunks_in_system': self.db.get_total_chunks_count(),
                 'file_hash': file_hash,
             }
 
@@ -203,7 +204,7 @@ class IndexingPipeline:
         for i, file_info in enumerate( files, start=1 ):
             log_message( LG.DataProcessing, f"\n📄 فایل {i}/{len(files)}: {file_info['name']}", LogLevel.INFO )
 
-            # ‫ارسال skip_bm25_rebuild=True برای افزایش سرعت
+            # ‫‫ارسال skip_bm25_rebuild=True برای افزایش سرعت
             result = self.index_document( file_info[ 'path' ], skip_bm25_rebuild=True )
             result[ 'filename' ] = file_info[ 'name' ]
             summary[ 'results' ].append( result )
@@ -255,14 +256,15 @@ class IndexingPipeline:
 
     # ==================== Private Methods ====================
 
-    def _check_and_handle_existing( self, filename: str, file_hash: str, skip_bm25_rebuild: bool = False ) -> tuple[ str, bool ]:
+    def _check_and_handle_existing( self, filename: str, file_hash: str ) -> tuple[ str, bool ]:
         """
        ‫ منطق ‫Replace by Filename
         """
 
         existing_by_hash = self.db.get_document_by_hash( file_hash )
         if existing_by_hash and str( existing_by_hash.file_name ) != str( filename ):
-            log_message( LG.DataProcessing, f"⚠️ محتوای '{filename}' با '{existing_by_hash.file_name}' یکیه — skip", LogLevel.WARNING )
+            log_message( LG.DataProcessing, f"⚠️ محتوای '{filename}' با '{existing_by_hash.file_name}' یکیه — skip",
+                         LogLevel.WARNING )
             return 'skipped', False
 
         existing = self.db.get_document_by_filename( filename )
@@ -274,11 +276,10 @@ class IndexingPipeline:
             log_message( LG.DataProcessing, f"⏭️ فایل '{filename}' بدون تغییر است — skip", LogLevel.WARNING )
             return 'skipped', False
 
-        # ‫فایل تغییر کرده → جایگزین کن
+        # ‫‫فایل تغییر کرده → جایگزین کن
         log_message( LG.DataProcessing, f"🔄 فایل '{filename}' تغییر کرده — جایگزین می‌شود", LogLevel.INFO )
 
         self._delete_document_data( existing.id, rebuild_bm25=False )
-
         return 'replaced', True
 
     def _delete_document_data( self, document_id: int, rebuild_bm25: bool = True ) -> None:
@@ -295,7 +296,7 @@ class IndexingPipeline:
             self.qdrant_indexer.delete_document_vectors( document_id )
             self.db.delete_document( document_id )
 
-            # تغییر در این خط: شرط بازسازی BM25
+            # ‫تغییر در این خط: شرط بازسازی BM25
             if rebuild_bm25:
                 remaining = self.db.get_all_chunks()
                 if remaining:

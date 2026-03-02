@@ -61,7 +61,7 @@ async def general_exception_handler( request: Request, exc: Exception ) -> JSONR
     # لاگ کامل برای دیباگ
     log_message( LG.API, f"❌ Critical Error on {request.url.path}: {traceback.format_exc()}", LogLevel.ERROR )
 
-    # بررسی خطاهای خاص شبکه/زمان در صورت وجود httpx
+    #‫ بررسی خطاهای خاص شبکه/زمان در صورت وجود httpx
     if HAS_HTTPX:
         if isinstance( exc, TimeoutException ):
             return JSONResponse( status_code=status.HTTP_504_GATEWAY_TIMEOUT,
