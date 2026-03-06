@@ -6,11 +6,12 @@ from backend.app.utils.custom_normalizer import persian_normalizer
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 from backend.app.core.config import settings
 import heapq
+import threading
 
 
 class BM25Indexer:
     """
-    مدیریت BM25 indexing برای جستجوی کلمات کلیدی
+   ‫ مدیریت BM25 indexing برای جستجوی کلمات کلیدی
     - ‫ساخت index با rank_bm25
     - ‫ذخیره/بارگذاری از pickle
     - جستجوی سریع
@@ -32,8 +33,9 @@ class BM25Indexer:
         self.bm25_index: Optional[ BM25Okapi ] = None
         self.chunk_ids: List[ str ] = []
         self.chunk_contents: List[ str ] = []
+        self._lock = threading.RLock()
 
-        log_message( LG.Retrieval, f"BM25Indexer آماده شد - مسیر: {self.cache_dir}", LogLevel.INFO )
+        log_message( LG.Retrieval, f"BM25Indexer آماده شد  ", LogLevel.INFO )
 
     def _tokenize( self, text: str ) -> List[ str ]:
         """
@@ -48,17 +50,17 @@ class BM25Indexer:
         # نرمال‌سازی
         normalized = self.normalizer.normalize( text )
 
-        # تقسیم به کلمات (simple tokenization)
+        #‫ تقسیم به کلمات (simple tokenization)
         tokens = normalized.split()
 
-        # حذف توکن‌های خیلی کوتاه (کمتر از 2 کاراکتر)
+        #‫ حذف توکن‌های خیلی کوتاه (کمتر از 2 کاراکتر)
         tokens = [ t for t in tokens if len( t ) >= 2 and t not in self.PERSIAN_STOPWORDS ]
 
         return tokens
 
     def build_index( self, chunks: List[ Dict[ str, Any ] ] ) -> bool:
         """
-        ساخت BM25 index از chunks
+       ‫ ساخت BM25 index از chunks
         
         Args:
             chunks: لیست chunks با فیلد 'content' و 'chunk_id'
@@ -66,59 +68,60 @@ class BM25Indexer:
         Returns:
             True در صورت موفقیت
         """
-        try:
-            if not chunks:
-                log_message( LG.Retrieval, "لیست chunks خالی است", LogLevel.WARNING )
+        with self._lock:
+            try:
+                if not chunks:
+                    log_message( LG.Retrieval, "لیست chunks خالی است", LogLevel.WARNING )
+                    return False
+
+                log_message( LG.Retrieval, f"شروع ساخت BM25 index برای {len(chunks)} chunk...", LogLevel.INFO )
+
+                #‫ استخراج محتوا و chunk_ids
+                self.chunk_ids = []
+                self.chunk_contents = []
+                tokenized_corpus = []
+
+                for chunk in chunks:
+                    chunk_id = chunk.get( 'chunk_id' )
+                    content = chunk.get( 'content', '' )
+
+                    if not chunk_id or not content.strip():
+                        log_message( LG.Retrieval, f"⚠️ Chunk نامعتبر: {chunk_id}", LogLevel.WARNING )
+                        continue
+
+                    self.chunk_ids.append( chunk_id )
+                    self.chunk_contents.append( content )
+
+                    # ‫توکنایز و اضافه به corpus
+                    tokens = self._tokenize( content )
+                    tokenized_corpus.append( tokens )
+
+                if not tokenized_corpus:
+                    log_message( LG.Retrieval, "❌ هیچ chunk معتبری برای indexing وجود ندارد", LogLevel.ERROR )
+                    return False
+
+                # ‫ساخت BM25 index
+                log_message( LG.Retrieval, "در حال ساخت BM25 index...", LogLevel.INFO )
+                self.bm25_index = BM25Okapi( tokenized_corpus )
+
+                # ذخیره در دیسک
+                self._save_index()
+
+                log_message( LG.Retrieval, f"✅ BM25 index برای {len(self.chunk_ids)} chunk ساخته شد", LogLevel.INFO )
+                return True
+
+            except Exception as e:
+                log_message( LG.Retrieval, f"❌ خطا در ساخت BM25 index: {str(e)}", LogLevel.ERROR )
                 return False
-
-            log_message( LG.Retrieval, f"شروع ساخت BM25 index برای {len(chunks)} chunk...", LogLevel.INFO )
-
-            # استخراج محتوا و chunk_ids
-            self.chunk_ids = []
-            self.chunk_contents = []
-            tokenized_corpus = []
-
-            for chunk in chunks:
-                chunk_id = chunk.get( 'chunk_id' )
-                content = chunk.get( 'content', '' )
-
-                if not chunk_id or not content.strip():
-                    log_message( LG.Retrieval, f"⚠️ Chunk نامعتبر: {chunk_id}", LogLevel.WARNING )
-                    continue
-
-                self.chunk_ids.append( chunk_id )
-                self.chunk_contents.append( content )
-
-                # توکنایز و اضافه به corpus
-                tokens = self._tokenize( content )
-                tokenized_corpus.append( tokens )
-
-            if not tokenized_corpus:
-                log_message( LG.Retrieval, "❌ هیچ chunk معتبری برای indexing وجود ندارد", LogLevel.ERROR )
-                return False
-
-            # ساخت BM25 index
-            log_message( LG.Retrieval, "در حال ساخت BM25 index...", LogLevel.INFO )
-            self.bm25_index = BM25Okapi( tokenized_corpus )
-
-            # ذخیره در دیسک
-            self._save_index()
-
-            log_message( LG.Retrieval, f"✅ BM25 index برای {len(self.chunk_ids)} chunk ساخته شد", LogLevel.INFO )
-            return True
-
-        except Exception as e:
-            log_message( LG.Retrieval, f"❌ خطا در ساخت BM25 index: {str(e)}", LogLevel.ERROR )
-            return False
 
     def _save_index( self ) -> bool:
-        """ذخیره index و mapping در دیسک"""
+        """ ‫ذخیره index و mapping در دیسک"""
         try:
-            # ذخیره BM25 index
+            # ‫ذخیره BM25 index
             with open( self.index_path, 'wb' ) as f:
                 pickle.dump( self.bm25_index, f )
 
-            # ذخیره chunk mapping
+            # ‫ذخیره chunk mapping
             mapping_data = { 'chunk_ids': self.chunk_ids, 'chunk_contents': self.chunk_contents }
             with open( self.mapping_path, 'wb' ) as f:
                 pickle.dump( mapping_data, f )
@@ -165,59 +168,60 @@ class BM25Indexer:
         Returns:
             لیست نتایج با فرمت: [{'chunk_id': ..., 'score': ..., 'content': ...}, ...]
         """
-        try:
-            if not self.load_index() or self.bm25_index is None:
-                log_message( LG.Retrieval, "BM25 index بارگذاری نشده است", LogLevel.WARNING )
-                # تلاش برای بارگذاری
-                if not self.load_index():
+        with self._lock:
+            try:
+                if self.bm25_index is None:
+                    # تلاش برای بارگذاری
+                    if not self.load_index():
+                        return []
+
+                #‫ توکنایز query
+                query_tokens = self._tokenize( query )
+
+                if not query_tokens:
+                    log_message( LG.Retrieval, "Query خالی یا نامعتبر است", LogLevel.WARNING )
                     return []
 
-            #‫ توکنایز query
-            query_tokens = self._tokenize( query )
+                # محاسبه امتیازات
+                scores = self.bm25_index.get_scores( query_tokens )          #type:ignore
 
-            if not query_tokens:
-                log_message( LG.Retrieval, "Query خالی یا نامعتبر است", LogLevel.WARNING )
+                # ‫مرتب‌سازی و انتخاب top-k
+                top_indices = heapq.nlargest( top_k, range( len( scores ) ), key=lambda i: scores[ i ] )
+
+                # ساخت نتایج
+                results = []
+                for idx in top_indices:
+                    if scores[ idx ] > 0:
+                        results.append( {
+                            'chunk_id': self.chunk_ids[ idx ],
+                            'score': float( scores[ idx ] ),
+                            'content': self.chunk_contents[ idx ]
+                        } )
+                return results
+
+            except Exception as e:
+                log_message( LG.Retrieval, f"❌ خطا در BM25 search: {str(e)}", LogLevel.ERROR )
                 return []
-
-            # محاسبه امتیازات
-            scores = self.bm25_index.get_scores( query_tokens )          #type:ignore
-
-            # ‫مرتب‌سازی و انتخاب top-k
-            top_indices = heapq.nlargest( top_k, range( len( scores ) ), key=lambda i: scores[ i ] )
-
-            # ساخت نتایج
-            results = []
-            for idx in top_indices:
-                if scores[ idx ] > 0:
-                    results.append( {
-                        'chunk_id': self.chunk_ids[ idx ],
-                        'score': float( scores[ idx ] ),
-                        'content': self.chunk_contents[ idx ]
-                    } )
-            return results
-
-        except Exception as e:
-            log_message( LG.Retrieval, f"❌ خطا در BM25 search: {str(e)}", LogLevel.ERROR )
-            return []
 
     def delete_index( self ) -> bool:
         """ ‫حذف کامل index از دیسک"""
-        try:
-            if self.index_path.exists():
-                self.index_path.unlink()
-            if self.mapping_path.exists():
-                self.mapping_path.unlink()
+        with self._lock:
+            try:
+                if self.index_path.exists():
+                    self.index_path.unlink()
+                if self.mapping_path.exists():
+                    self.mapping_path.unlink()
 
-            self.bm25_index = None
-            self.chunk_ids = []
-            self.chunk_contents = []
+                self.bm25_index = None
+                self.chunk_ids = []
+                self.chunk_contents = []
 
-            log_message( LG.Retrieval, "✅ BM25 index حذف شد", LogLevel.INFO )
-            return True
+                log_message( LG.Retrieval, "✅ BM25 index حذف شد", LogLevel.INFO )
+                return True
 
-        except Exception as e:
-            log_message( LG.Retrieval, f"خطا در حذف BM25 index: {str(e)}", LogLevel.ERROR )
-            return False
+            except Exception as e:
+                log_message( LG.Retrieval, f"خطا در حذف BM25 index: {str(e)}", LogLevel.ERROR )
+                return False
 
     def get_stats( self ) -> Dict[ str, Any ]:
         """ ‫آمار BM25 index"""
@@ -237,18 +241,19 @@ class BM25Indexer:
         Returns:
             True در صورت موفقیت
         """
-        try:
-            if not db_chunks:
-                log_message( LG.Retrieval, "لیست chunks دیتابیس خالی است", LogLevel.WARNING )
-                return self.delete_index()          # حذف index قدیمی
+        with self._lock:
+            try:
+                if not db_chunks:
+                    log_message( LG.Retrieval, "لیست chunks دیتابیس خالی است", LogLevel.WARNING )
+                    return self.delete_index()          # حذف index قدیمی
 
-            # تبدیل به فرمت مناسب
-            chunks_data = [ { 'chunk_id': chunk.chunk_id, 'content': chunk.content } for chunk in db_chunks ]
+                # تبدیل به فرمت مناسب
+                chunks_data = [ { 'chunk_id': chunk.chunk_id, 'content': chunk.content } for chunk in db_chunks ]
 
-            log_message( LG.Retrieval, f"بازسازی BM25 index با {len(chunks_data)} chunk از دیتابیس...", LogLevel.INFO )
+                log_message( LG.Retrieval, f"بازسازی BM25 index با {len(chunks_data)} chunk از دیتابیس...", LogLevel.INFO )
 
-            return self.build_index( chunks_data )
+                return self.build_index( chunks_data )
 
-        except Exception as e:
-            log_message( LG.Retrieval, f"❌ خطا در rebuild از دیتابیس: {str(e)}", LogLevel.ERROR )
-            return False
+            except Exception as e:
+                log_message( LG.Retrieval, f"❌ خطا در rebuild از دیتابیس: {str(e)}", LogLevel.ERROR )
+                return False

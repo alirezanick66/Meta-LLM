@@ -102,12 +102,12 @@ class PromptBuilder:
         sources = []
         current_tokens = 0
 
-        # توکن‌های رزرو شده برای Query و خودِ قالب
+        # ‫توکن‌های رزرو شده برای Query و خودِ قالب
         query_tokens = self.count_tokens( query )
         reserved = self.template_overhead + query_tokens
         available_limit = self.max_context_tokens - reserved
 
-        # تخمین سربار هر منبع (مانند: [منبع 1 - ...]\n)
+        # ‫تخمین سربار هر منبع (مانند: [منبع 1 - ...]\n)
         # فرض ثابت بودن برای پرفورمنس (می‌توان دقیق‌تر هم محاسبه کرد)
         CHUNK_OVERHEAD_ESTIMATE = 20
 

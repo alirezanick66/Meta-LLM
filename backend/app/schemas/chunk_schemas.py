@@ -4,6 +4,7 @@ from pydantic import ConfigDict
 
 class ChunkMetadata( BaseModel ):
     """ ‫برای چانک  Qdrant استفاده میشه """
+    model_config = ConfigDict( extra='ignore' )
     chunk_id: str
     document_id: int
     source: str
@@ -13,6 +14,3 @@ class ChunkMetadata( BaseModel ):
     hierarchy: str | None = None
     has_list: bool = False
     heading_level: int = 0
-
-    class Config:
-        model_config = ConfigDict( extra='ignore' )

@@ -1,5 +1,5 @@
 """
-‫ Dependency Injection برای سرویس‌های سنگین
+‫‫ Dependency Injection برای سرویس‌های سنگین
 ‫ همه singleton ها اینجا با @lru_cache مدیریت میشن
 """
 
@@ -83,7 +83,7 @@ def get_llm_orchestrator() -> LLMOrchestrator:
 
 
 def clear_singletons() -> None:
-    """‫ پاک کردن همه cache ها (برای testing یا restart)"""
+    """ ‫‫ پاک کردن همه cache ها (برای testing یا restart)"""
     get_embedding_service.cache_clear()
     get_tokenizer_service.cache_clear()
     get_qdrant_manager.cache_clear()

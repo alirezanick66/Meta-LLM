@@ -187,7 +187,7 @@ async def upload_document(
         )
 
     # پیشنهاد: استفاده از تنظیمات برای مسیر ذخیره‌سازی
-    documents_dir = Path( settings.DOCUMENTS_DIR if hasattr( settings, 'DOCUMENTS_DIR' ) else "backend/data/documents" )
+    documents_dir = documents_dir = Path( settings.DOCUMENTS_DIR )
     documents_dir.mkdir( parents=True, exist_ok=True )
     dest_path = documents_dir / file.filename
 
