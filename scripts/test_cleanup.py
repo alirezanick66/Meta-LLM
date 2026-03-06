@@ -15,7 +15,7 @@ from backend.app.core.config import settings
 
 def run_docker_command( command: str, description: str ) -> bool:
     """
-    اجرای دستورات Docker با نمایش خروجی
+   ‫ اجرای دستورات Docker با نمایش خروجی
     """
     try:
         log_message( LG.Database, f"🐳 {description}...", LogLevel.INFO )

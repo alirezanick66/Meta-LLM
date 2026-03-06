@@ -36,27 +36,23 @@ def test_full_indexing():
             # اجرای indexing
             result = pipeline.index_document( test_file )
             # نمایش نتیجه
-            if result[ 'success' and result[ 'action' ] == 'new' ]:
+            if result[ 'success' ]:
                 log_message( LG.DataProcessing, "=" * 70, LogLevel.INFO )
                 log_message( LG.DataProcessing, "✅ تست موفقیت‌آمیز بود!", LogLevel.INFO )
                 log_message( LG.DataProcessing, "=" * 70, LogLevel.INFO )
-                log_message( LG.DataProcessing, f"📄 Document ID: {result['document_id']}", LogLevel.INFO )
-                log_message( LG.DataProcessing, f"📄 Filename: {result['filename']}", LogLevel.INFO )
-                log_message( LG.DataProcessing, f"🧩 Total Chunks: {result['total_chunks']}", LogLevel.INFO )
-                log_message( LG.DataProcessing, f"🔤 Total Tokens: {result['total_tokens']}", LogLevel.INFO )
 
-                # نمایش آمار کلی
-                stats = pipeline.get_pipeline_stats()
-                log_message( LG.DataProcessing, "📊 آمار کلی سیستم:", LogLevel.INFO )
-                log_message( LG.DataProcessing, f"   Documents: {stats['total_documents']}", LogLevel.INFO )
-                log_message( LG.DataProcessing, f"   Chunks: {stats['total_chunks']}", LogLevel.INFO )
-                log_message( LG.DataProcessing, f"   Qdrant Vectors: {stats['qdrant_stats']['total_vectors']}", LogLevel.INFO )
-                log_message( LG.DataProcessing, f"   BM25 Chunks: {stats['bm25_stats']['total_chunks']}", LogLevel.INFO )
-                log_message( LG.DataProcessing, "=" * 70, LogLevel.INFO )
+                if result[ 'action' ] == 'skipped':
+                    log_message( LG.DataProcessing, "⏭️ فایل بدون تغییر بود", LogLevel.INFO )
+
+                else:
+                    log_message( LG.DataProcessing, f"📁 فایل ساخته شد", LogLevel.INFO )
+                    log_message( LG.DataProcessing, f"📄 Document ID: {result['document_id']}", LogLevel.INFO )
+                    log_message( LG.DataProcessing, f"📄 Filename: {result['filename']}", LogLevel.INFO )
+                    log_message( LG.DataProcessing, f"🧩 Total Chunks: {result['total_chunks']}", LogLevel.INFO )
+                    log_message( LG.DataProcessing, f"🔤 Total Tokens: {result['total_tokens']}", LogLevel.INFO )
 
             else:
-                log_message( LG.DataProcessing, "❌ تست ناموفق بود!", LogLevel.ERROR )
-                log_message( LG.DataProcessing, f"خطا: {result.get('error', 'نامشخص')}", LogLevel.ERROR )
+                log_message( LG.DataProcessing, f"❌ خطا: {result.get('error')}", LogLevel.ERROR )
 
         except Exception as e:
             log_message( LG.DataProcessing, f"❌ خطای غیرمنتظره: {str(e)}", LogLevel.ERROR )

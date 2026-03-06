@@ -34,20 +34,22 @@ Persian-language RAG (Retrieval-Augmented Generation) Q&A system for urban plann
 ```
 User Query → Persian Normalization → Parallel BM25 + Vector Retrieval (Top-20 each)
 → Reciprocal Rank Fusion (Top-20) → Final Top-5 → Prompt Builder → LLM Orchestrator
-(Primary: Groq llama-3.3-70b-versatile, Fallback: Gemini gemini-2.5-flash) → Answer + Sources
+(Primary: Groq llama-3.3-70b-versatile, Fallback: Gemini gemini-2.0-flash-exp) → Answer + Sources
 ```
 
 ### Key Directories
 
 - `backend/app/api/` – FastAPI routes, dependency injection (Singleton services), exception handlers
 - `backend/app/services/retrieval/` – BM25 indexer, vector retriever, hybrid retriever with RRF
+- `backend/app/services/vector/` – QdrantManager, QdrantIndexer
 - `backend/app/services/llm/` – GroqClient, GeminiClient, LLMOrchestrator (primary/fallback logic)
-- `backend/app/services/document/` – MarkdownExtractor, PersianNormalizer, MarkdownChunker
+- `backend/app/services/document/` – MarkdownExtractor, WordExtractor, PersianNormalizer, MarkdownChunker
+- `backend/app/schemas/` – base_schemas, api_schemas, chat_schemas, chunk_schemas, llm_schemas, retrieval_schemas
 - `backend/app/utils/logging_config.py` – Loguru-based logger with Persian text support (bidi + arabic_reshaper)
 - `backend/app/core/config.py` – All settings via `pydantic_settings.BaseSettings`; reads from `.env`
-- `backend/data/documents/` – Source Markdown files; `backend/data/storage/bm25/` – BM25 pickle files
+- `backend/data/documents/` – Source Markdown files; `backend/data/storage/bm25_cache/` – BM25 pickle files
 - `scripts/` – Test scripts: `test_api.py`, `test_retrieval.py`, `test_rag_pipline.py`, etc.
-- `frontend/src/components/` – ChatInterface, Message, InputBox, MessageActions, SkeletonMessage, ScrollToBottom
+- `frontend/src/components/` – ChatInterface, Message, InputBox, MessageActions, SkeletonMessage, ScrollToBottom, SourceCards, SourceModal
 
 ## Developer Workflows
 
@@ -108,13 +110,24 @@ All schemas use Pydantic V2 syntax (`model_config`, `computed_field`). Settings 
 
 Always normalize queries with `PersianNormalizer` before retrieval. The custom normalizer uses `str.translate` (no Hazm dependency). Log messages use `arabic_reshaper` + `bidi` for correct terminal display.
 
+### Retrieval Schemas
+
+All retrieval-related constants are defined in `backend/app/schemas/retrieval_schemas.py`:
+
+```python
+class RetrievalMethod   # BM25, VECTOR
+class ResultKeys        # CHUNK_ID, SCORE, RETRIEVAL_METHOD, METADATA, CONTENT
+class RRFKeys           # RRF_SCORE, BM25_SCORE, VECTOR_SCORE, BM25_RANK, VECTOR_RANK
+class RRFStats          # BOTH, ONLY_BM25, ONLY_VECTOR
+```
+
 ### Qdrant Point IDs
 
-SHA-256(chunk_id)[:8] converted to int. Payload includes: `chunk_id`, `document_id`, `source`, `hierarchy`.
+SHA-256(chunk_id)[:8] converted to int. Payload includes: `chunk_id`, `document_id`, `source`, `hierarchy`. Batch insert size: 100.
 
 ### BM25 Storage
 
-BM25 index and chunk_id mapping stored as pickles in `backend/data/storage/bm25/`. Only chunk_ids are kept in memory; content is fetched from PostgreSQL via bulk queries when needed.
+BM25 index and chunk_id mapping stored as pickles in `backend/data/storage/bm25_cache/`. Only chunk_ids are kept in memory; content is fetched from PostgreSQL via bulk queries when needed.
 
 ### Frontend
 
@@ -122,9 +135,7 @@ RTL layout (Persian); Tailwind utility classes; `useTypingEffect` hook for chara
 
 ## External Dependencies
 
-- **Groq API** (`GROQ_API_KEY`) – primary LLM
-- **Gemini API** (`GEMINI_API_KEY`) – fallback LLM
-- **BAAI/bge-m3** – embeddings (1024-dim, CPU, batch 32)
+- **Groq API** (`GROQ_API_KEY`) – primary LLM (llama-3.3-70b-versatile)
+- **Gemini API** (`GEMINI_API_KEY`) – fallback LLM (gemini-2.0-flash-exp)
+- **Alibaba-NLP/gte-multilingual-base** – embeddings (768-dim, CPU, batch 32) — یکپارچه برای embedding و token counting
 - **BAAI/bge-reranker-v2-m3** – reranker (ready, not yet active)
-- **HooshvareLab/bert-fa-base-uncased** – Persian tokenizer (chunker)
-- Tokenizer uses lazy loading via `get_chunker_tokenizer()` to avoid 2–3s startup and 500MB memory on cold start

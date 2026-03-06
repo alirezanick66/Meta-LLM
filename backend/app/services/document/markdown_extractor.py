@@ -179,9 +179,9 @@ class MarkdownExtractor:
         return content
 
     def _extract_metadata( self, file_path: str, raw_content: str ) -> Dict:
-        """استخراج metadata از فایل"""
+        """ ‫استخراج metadata از فایل"""
 
-        # استخراج اولین heading به عنوان title
+        # ‫استخراج اولین heading به عنوان title
         title_match = re.search( r'^#\s+(.+)$', raw_content, re.MULTILINE )
         title = title_match.group( 1 ) if title_match else Path( file_path ).stem
 

@@ -29,10 +29,10 @@
 
 ### **AI/ML Components:**
 
-- **Embedding Model:** Alibaba-NLP/gte-multilingual-base (768-dim) ← _(تغییر از bge-m3)_
+- **Embedding Model:** Alibaba-NLP/gte-multilingual-base (768-dim)
 - **Device:** CPU با batch processing (batch_size: 32)
 - **CPU Threads:** 4 (قابل تنظیم)
-- **Tokenizer:** HooshvareLab/bert-fa-base-uncased (Persian) + gte-multilingual-base (Chunking)
+- **Tokenizer:** gte-multilingual-base (یکپارچه برای chunking و token counting) 🆕
 - **Reranker:** BAAI/bge-reranker-v2-m3 (فاز 5 - آماده)
 - **LLM Primary:** Groq API - llama-3.3-70b-versatile ✅
 - **LLM Fallback:** Gemini API - gemini-2.0-flash-exp ✅
@@ -99,7 +99,7 @@
 | فرمت                | Extractor         | ویژگی‌ها                                               |
 | ------------------- | ----------------- | ------------------------------------------------------ |
 | `.md` / `.markdown` | MarkdownExtractor | header hierarchy، list detection، front matter removal |
-| `.docx` / `.doc`    | WordExtractor     | Heading→Markdown، table extraction، textbox support    |
+| `.docx`             | WordExtractor     | Heading→Markdown، table extraction، textbox support    |
 
 **منطق Replace by Filename:**
 
@@ -199,7 +199,7 @@ INDEX idx_chunks_chunk_index
 ### **Qdrant:**
 
 - **Collection:** meta_documents
-- **Vector Size:** 768 (gte-multilingual-base) ← _(تغییر از 1024)_
+- **Vector Size:** 768 (gte-multilingual-base)
 - **Distance:** COSINE
 - **Point ID:** SHA-256(chunk_id)[:8] → int
 - **Payload:** `{chunk_id, document_id, source, hierarchy, ...}`
@@ -234,8 +234,6 @@ class Source(BaseModel):
 | Redis      | Single instance | Cluster mode                     |
 | BM25       | In-memory       | Distributed caching              |
 
-**معماری ماژولار = Scale آسان** ✅
-
 ---
 
 ## 📋 فازبندی پروژه
@@ -259,41 +257,43 @@ class Source(BaseModel):
 #### ✅ **فاز 3: Document Processing**
 
 - MarkdownExtractor: استخراج و تمیزسازی
-- **WordExtractor: استخراج از .docx با Heading→Markdown، جداول، textbox** 🆕
-- **DocumentProcessor: یکپارچه‌سازی multi-format با scan_folder** 🆕
+- WordExtractor: استخراج از .docx با Heading→Markdown، جداول، textbox
+- DocumentProcessor: یکپارچه‌سازی multi-format با scan_folder
 - PersianNormalizer: نرمال‌سازی پیشرفته (بدون Hazm)
-- MarkdownChunker: LangChain-based با header awareness
+- MarkdownChunker: LangChain-based با header awareness و پشتیبانی از Header 4 🆕
 - File hashing (SHA-256) برای duplicate detection
-- **Replace-by-filename logic: skip/replace بر اساس hash** 🆕
+- Replace-by-filename logic: skip/replace بر اساس hash
 
 #### ✅ **فاز 4: Embedding & Indexing**
 
-- EmbeddingService: **gte-multilingual-base** با CPU optimization ← _(تغییر از bge-m3)_
+- EmbeddingService: gte-multilingual-base با CPU optimization
+    - استفاده از `get_sentence_embedding_dimension()` به جای test embedding 🆕
+    - `convert_to_numpy=True` برای حذف type check های اضافه 🆕
+    - Batch insert با `BATCH_SIZE=100` در Qdrant 🆕
+- TokenizerService: یکپارچه‌سازی با gte-multilingual-base (حذف tokenizer فارسی جداگانه) 🆕
 - QdrantIndexer: ذخیره vectors با Pydantic validation
 - BM25Indexer: keyword indexing با rebuild قابلیت
 - IndexingPipeline: orchestrator کامل با rollback
-- **بهینه‌سازی Batch: skip_bm25_rebuild برای پردازش پوشه (BM25 یک‌بار در پایان)** 🆕
-
-**مزایای تغییر مدل:**
-
-- حجم: 305M (در مقابل 570M قبلی)
-- سرعت: ~2x سریع‌تر روی CPU
-- ابعاد vector: 768 (در مقابل 1024 قبلی)
+- بهینه‌سازی Batch: skip_bm25_rebuild برای پردازش پوشه (BM25 یک‌بار در پایان)
 
 #### ✅ **فاز 5: Retrieval System**
 
-- ✅ BM25 Retriever (keyword-based)
-- ✅ Vector Retriever (Qdrant semantic search)
-- ✅ Hybrid Retriever با Reciprocal Rank Fusion (RRF)
-- ✅ Parallel execution (ThreadPoolExecutor)
-- ✅ Score thresholds و filtering
+- BM25 Retriever (keyword-based)
+- Vector Retriever (Qdrant semantic search)
+- Hybrid Retriever با Reciprocal Rank Fusion (RRF)
+- Parallel execution (ThreadPoolExecutor) — حذف sequential fallback 🆕
+- Score thresholds و filtering
 - 🔵 BGE Reranker integration (آماده)
 
-**Components:**
+**Schema های یکپارچه برای Retrieval:** 🆕
 
-- `services/retrieval/bm25_indexer.py`
-- `services/retrieval/vector_retriever.py`
-- `services/retrieval/hybrid_retriever.py`
+```python
+# backend/app/schemas/retrieval_schemas.py
+class RetrievalMethod   # BM25, VECTOR
+class ResultKeys        # CHUNK_ID, SCORE, RETRIEVAL_METHOD, METADATA, CONTENT
+class RRFKeys           # RRF_SCORE, BM25_SCORE, VECTOR_SCORE, BM25_RANK, VECTOR_RANK
+class RRFStats          # BOTH, ONLY_BM25, ONLY_VECTOR
+```
 
 **Performance:**
 
@@ -302,42 +302,42 @@ class Source(BaseModel):
 
 #### ✅ **فاز 6: LLM Integration**
 
-- ✅ **TokenizerService:** Singleton با lazy loading
-- ✅ **PromptBuilder:** ساخت prompt بهینه با token counting + **ارسال content به sources** 🆕
-- ✅ **GroqClient:** Groq API - llama-3.3-70b-versatile
-- ✅ **GeminiClient:** Gemini API fallback - gemini-2.0-flash-exp
-- ✅ **LLMOrchestrator:** مدیریت Primary/Fallback با metadata کامل
+- TokenizerService: Singleton با lazy loading
+- PromptBuilder: ساخت prompt بهینه با token counting + ارسال content به sources
+- GroqClient: Groq API - llama-3.3-70b-versatile
+- GeminiClient: Gemini API fallback - gemini-2.0-flash-exp
+- LLMOrchestrator: مدیریت Primary/Fallback با metadata کامل
 
 #### ✅ **فاز 9: API Layer**
 
-- ✅ **FastAPI Application:** با lifespan management و CORS
-- ✅ **Pydantic Schemas:** Request/Response validation
-- ✅ **API Endpoints:**
+- FastAPI Application: با lifespan management و CORS
+- Pydantic Schemas: Request/Response validation
+- API Endpoints:
     - `POST /api/chat` - RAG pipeline endpoint
     - `GET /api/stats` - آمار سیستم
     - `GET /health` - Health check با metrics
     - `GET /` - API documentation
-    - **`DELETE /api/documents/{document_id}` - حذف یک سند** 🆕
-    - **`POST /api/documents/bulk-delete` - حذف دسته‌ای با یک BM25 rebuild** 🆕
-- ✅ **Exception Handling:** با traceback و type-based handling
-- ✅ **Dependency Injection:** Singleton pattern با `@lru_cache` برای همه سرویس‌ها
-- ✅ **Security:** path traversal protection با `Path(filename).name`
+    - `DELETE /api/documents/{document_id}` - حذف یک سند
+    - `POST /api/documents/bulk-delete` - حذف دسته‌ای با یک BM25 rebuild
+- Exception Handling: با traceback و type-based handling
+- Dependency Injection: Singleton pattern با `@lru_cache` برای همه سرویس‌ها
+- Security: path traversal protection با `Path(filename).name`
 
 #### ✅ **فاز 10: Frontend**
 
-- ✅ **React 18 + Vite:** Modern build tool
-- ✅ **React Router DOM:** مسیریابی `/` و `/admin`
-- ✅ **Tailwind CSS:** Utility-first styling با theme سفارشی
-- ✅ **Components:**
+- React 18 + Vite: Modern build tool
+- React Router DOM: مسیریابی `/` و `/admin`
+- Tailwind CSS: Utility-first styling با theme سفارشی
+- Components:
     - `ChatInterface` - Main chat container
     - `Message` - با Markdown support و typing effect
     - `InputBox` - با character counter و send button
     - `MessageActions` - دکمه‌های Copy، Edit، Regenerate
     - `SkeletonMessage` - Loading state
     - `ScrollToBottom` - Floating scroll button
-    - **`SourceCards` - نمایش منابع collapsible بعد از پایان typing** 🆕
-    - **`SourceModal` - modal متن کامل chunk با نام فایل درست** 🆕
-- ✅ **Admin Panel:** 🆕
+    - `SourceCards` - نمایش منابع collapsible بعد از پایان typing
+    - `SourceModal` - modal متن کامل chunk با نام فایل درست
+- Admin Panel:
     - `AdminPage` - صفحه مدیریت
     - `AdminLogin` - احراز هویت با password
     - `StatsCard` - نمایش آمار سیستم
@@ -352,87 +352,80 @@ class Source(BaseModel):
 - پیام ربات: بدون background
 - دکمه ارسال: `#ffc414` (زرد طلایی)
 
-**Structure:**
+---
+
+## 📂 ساختار پروژه
 
 ```
-frontend/
-├── src/
-│   ├── components/
-│   │   ├── ChatInterface.jsx
-│   │   ├── Message.jsx
-│   │   ├── MessageActions.jsx
-│   │   ├── InputBox.jsx
-│   │   ├── SkeletonMessage.jsx
-│   │   ├── ScrollToBottom.jsx
-│   │   ├── SourceCards.jsx
-│   │   ├── SourceModal.jsx
-│   │   └── admin/
-│   │       ├── AdminLogin.jsx
-│   │       ├── StatsCard.jsx
-│   │       ├── DocumentList.jsx
-│   │       └── UploadZone.jsx
-│   ├── hooks/
-│   │   └── useTypingEffect.js
-│   ├── pages/
-│   │   ├── ChatPage.jsx
-│   │   └── AdminPage.jsx
-│   ├── services/
-│   │   ├── api.js
-│   │   └── adminApi.js
-│   ├── index.css
-│   └── main.jsx
-├── index.html
-├── tailwind.config.js
-├── vite.config.js
-└── package.json
+Meta/
+├── backend/
+│   ├── alembic/
+│   ├── app/
+│   │   ├── core/
+│   │   │   ├── config.py
+│   │   │   └── database.py
+│   │   ├── db/
+│   │   │   ├── models.py
+│   │   │   └── postgres.py
+│   │   ├── api/
+│   │   │   ├── routes.py
+│   │   │   ├── dependencies.py       # Singleton management (@lru_cache)
+│   │   │   └── exceptions.py
+│   │   ├── schemas/
+│   │   │   ├── base_schemas.py       # Enums مشترک (LLMProvider, HealthStatus)
+│   │   │   ├── api_schemas.py        # UsageInfo, HealthResponse, SystemStats
+│   │   │   ├── chat_schemas.py       # ChatRequest, ChatResponse, Source
+│   │   │   ├── chunk_schemas.py      # ChunkMetadata (Qdrant payload)
+│   │   │   ├── llm_schemas.py        # PromptResult, LLMResponse, ProviderLLMResponse
+│   │   │   └── retrieval_schemas.py  # RetrievalMethod, ResultKeys, RRFKeys, RRFStats 🆕
+│   │   ├── services/
+│   │   │   ├── embedding/
+│   │   │   │   ├── embedding_service.py
+│   │   │   │   └── tokenizer_service.py
+│   │   │   ├── vector/               # 🆕 تغییر نام از vector_store
+│   │   │   │   ├── qdrant_client.py
+│   │   │   │   └── qdrant_indexer.py
+│   │   │   ├── retrieval/
+│   │   │   │   ├── bm25_indexer.py
+│   │   │   │   ├── vector_retriever.py
+│   │   │   │   └── hybrid_retriever.py
+│   │   │   ├── document/
+│   │   │   │   ├── document_processor.py
+│   │   │   │   ├── indexing_pipeline.py
+│   │   │   │   ├── chunker.py
+│   │   │   │   ├── markdown_extractor.py
+│   │   │   │   └── word_extractor.py
+│   │   │   └── llm/
+│   │   │       ├── groq_client.py
+│   │   │       ├── gemini_client.py
+│   │   │       ├── prompt_builder.py
+│   │   │       └── llm_orchestrator.py
+│   │   ├── utils/
+│   │   │   ├── logging_config.py
+│   │   │   ├── custom_normalizer.py
+│   │   │   └── hash_utils.py
+│   │   └── main.py
+│   ├── data/
+│   │   ├── documents/                # فایل‌های ورودی
+│   │   └── storage/
+│   │       └── bm25_cache/           # bm25_index.pkl, chunk_mapping.pkl
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   └── admin/
+│   │   ├── hooks/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── index.css
+│   ├── index.html
+│   ├── tailwind.config.js
+│   ├── vite.config.js
+│   └── package.json
+├── scripts/
+├── docker-compose.yml
+└── README.md
 ```
-
-**Dependencies:**
-
-```json
-{
-	"dependencies": {
-		"react": "^18.3.1",
-		"react-dom": "^18.3.1",
-		"react-router-dom": "^6.x",
-		"axios": "^1.7.9",
-		"react-markdown": "^9.0.0",
-		"remark-gfm": "^4.0.0"
-	}
-}
-```
-
-### 🔵 **فازهای بعدی:**
-
-#### 🟤 **فاز 7: Caching & Optimization**
-
-- ⬜ Redis caching strategy
-- ⬜ Query cache
-- ⬜ Embedding cache
-- ⬜ Response cache
-- ⬜ Connection pooling
-
-#### ⚫ **فاز 8: Logging & Monitoring**
-
-- ⬜ Advanced metrics
-- ⬜ Performance monitoring
-- ⬜ Error tracking dashboard
-
-#### 🟡 **فاز 11: Advanced Features**
-
-- ⬜ Sidebar + Chat history
-- ⬜ Settings panel
-- ⬜ Dark/Light mode toggle
-- ⬜ Voice input
-- ⬜ PDF support (text-based)
-- ⬜ Streaming responses
-
-#### 🟢 **فاز 12: Deployment**
-
-- ⬜ Production config
-- ⬜ Docker production images
-- ⬜ CI/CD pipeline
-- ⬜ Deployment guide
 
 ---
 
@@ -504,79 +497,6 @@ docker-compose logs -f postgres
 
 ---
 
-## 📂 ساختار پروژه
-
-```
-Meta/
-├── backend/
-│   ├── alembic/
-│   ├── app/
-│   │   ├── core/
-│   │   │   ├── config.py
-│   │   │   └── database.py
-│   │   ├── db/
-│   │   │   ├── models.py
-│   │   │   └── postgres.py
-│   │   ├── api/
-│   │   │   ├── routes.py
-│   │   │   ├── dependencies.py       # Singleton management (@lru_cache)
-│   │   │   └── exceptions.py
-│   │   ├── schemas/
-│   │   │   ├── base_schemas.py       # Enums مشترک (LLMProvider, HealthStatus)
-│   │   │   ├── api_schemas.py        # UsageInfo, HealthResponse, SystemStats
-│   │   │   ├── chat_schemas.py       # ChatRequest, ChatResponse, Source
-│   │   │   ├── chunk_schemas.py      # ChunkMetadata (Qdrant payload)
-│   │   │   └── llm_schemas.py        # PromptResult, LLMResponse, ProviderLLMResponse
-│   │   ├── services/
-│   │   │   ├── embedding/
-│   │   │   │   ├── embedding_service.py
-│   │   │   │   └── tokenizer_service.py
-│   │   │   ├── vector_store/
-│   │   │   │   ├── qdrant_client.py
-│   │   │   │   └── qdrant_indexer.py
-│   │   │   ├── retrieval/
-│   │   │   │   ├── bm25_indexer.py
-│   │   │   │   ├── vector_retriever.py
-│   │   │   │   └── hybrid_retriever.py
-│   │   │   ├── document/
-│   │   │   │   ├── document_processor.py
-│   │   │   │   ├── indexing_pipeline.py
-│   │   │   │   ├── chunker.py
-│   │   │   │   ├── markdown_extractor.py
-│   │   │   │   └── word_extractor.py
-│   │   │   └── llm/
-│   │   │       ├── groq_client.py
-│   │   │       ├── gemini_client.py
-│   │   │       ├── prompt_builder.py
-│   │   │       └── llm_orchestrator.py
-│   │   ├── utils/
-│   │   │   ├── logging_config.py
-│   │   │   └── hash_utils.py
-│   │   └── main.py
-│   ├── data/
-│   │   ├── documents/                # فایل‌های ورودی
-│   │   └── storage/
-│   │       └── bm25_cache/           # bm25_index.pkl, chunk_mapping.pkl
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   └── admin/
-│   │   ├── hooks/
-│   │   ├── pages/
-│   │   ├── services/
-│   │   └── index.css
-│   ├── index.html
-│   ├── tailwind.config.js
-│   ├── vite.config.js
-│   └── package.json
-├── scripts/
-├── docker-compose.yml
-└── README.md
-```
-
----
-
 ## 🐛 رفع مشکلات رایج
 
 ### **1. Qdrant Connection Error:**
@@ -622,7 +542,7 @@ docker-compose up -d
 alembic upgrade head
 ```
 
-### **6. مشکل dimension مغایرت Qdrant بعد از تغییر مدل embedding:** 🆕
+### **6. مشکل dimension مغایرت Qdrant بعد از تغییر مدل embedding:**
 
 ```bash
 # حذف collection قدیمی و ساخت مجدد
@@ -630,20 +550,57 @@ curl -X DELETE http://localhost:6333/collections/meta_documents
 # سپس re-index همه اسناد
 ```
 
----
+### **7. Warning های SentenceTransformer هنگام لود مدل:** 🆕
 
-## 📄 License
+```
+No sentence-transformers model found...
+Some weights of the model checkpoint were not used...
+```
 
-این پروژه تحت لایسنس MIT منتشر شده است.
+این warning ها طبیعی هستن — مدل gte-multilingual-base برای classification train شده ولی ما فقط از embedding layer استفاده می‌کنیم. تأثیری روی کیفیت embedding ندارند.
 
 ---
 
 ## 📌 اطلاعات نسخه
 
-- **نسخه:** 1.2.0
-- **آخرین بروزرسانی:** 2026-02-23
-- **وضعیت:** Refactoring کامل شد (Singleton یکپارچه، Schema لایه‌بندی شده، Circular Import حل شد) ✅
-- **مرحله بعدی:** فاز 7 - Caching & Optimization
+- **نسخه:** 1.3.0
+- **آخرین بروزرسانی:** 2026-03-06
+- **وضعیت:** Code Review و Refactoring لایه‌های Embedding، Vector، Retrieval تکمیل شد ✅
+- **مرحله بعدی:** Code Review لایه LLM → فاز 7 - Caching & Optimization
+
+---
+
+### 🔵 **فازهای بعدی:**
+
+#### 🟤 **فاز 7: Caching & Optimization**
+
+- ⬜ Redis caching strategy
+- ⬜ Query cache
+- ⬜ Embedding cache
+- ⬜ Response cache
+- ⬜ Connection pooling
+
+#### ⚫ **فاز 8: Logging & Monitoring**
+
+- ⬜ Advanced metrics
+- ⬜ Performance monitoring
+- ⬜ Error tracking dashboard
+
+#### 🟡 **فاز 11: Advanced Features**
+
+- ⬜ Sidebar + Chat history
+- ⬜ Settings panel
+- ⬜ Dark/Light mode toggle
+- ⬜ Voice input
+- ⬜ PDF support (text-based)
+- ⬜ Streaming responses
+
+#### 🟢 **فاز 12: Deployment**
+
+- ⬜ Production config
+- ⬜ Docker production images
+- ⬜ CI/CD pipeline
+- ⬜ Deployment guide
 
 ---
 

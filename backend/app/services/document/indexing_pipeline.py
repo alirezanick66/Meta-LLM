@@ -241,19 +241,6 @@ class IndexingPipeline:
 
         return summary
 
-    def get_pipeline_stats( self ) -> Dict[ str, Any ]:
-        """دریافت آمار کلی pipeline"""
-        try:
-            return {
-                'total_documents': self.db.get_total_documents_count(),
-                'total_chunks': self.db.get_total_chunks_count(),
-                'qdrant_stats': self.qdrant_indexer.get_stats(),
-                'bm25_stats': self.bm25_indexer.get_stats(),
-            }
-        except Exception as e:
-            log_message( LG.DataProcessing, f"خطا در دریافت آمار: {str(e)}", LogLevel.ERROR )
-            return {}
-
     # ==================== Private Methods ====================
 
     def _check_and_handle_existing( self, filename: str, file_hash: str ) -> tuple[ str, bool ]:
