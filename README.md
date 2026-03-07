@@ -35,7 +35,7 @@
 - **Tokenizer:** gte-multilingual-base (یکپارچه برای chunking و token counting) 🆕
 - **Reranker:** BAAI/bge-reranker-v2-m3 (فاز 5 - آماده)
 - **LLM Primary:** Groq API - llama-3.3-70b-versatile ✅
-- **LLM Fallback:** Gemini API - gemini-2.0-flash-exp ✅
+- **LLM Fallback:** Gemini API - gemini-2.5-flash ✅
 - **Persian Processing:** Custom Normalizer (بدون Hazm، با str.translate برای سرعت)
 
 ### **Frontend:**
@@ -224,6 +224,43 @@ class Source(BaseModel):
 
 ---
 
+## 🧱 LLM Layer Architecture
+
+### **لایه‌بندی داخلی:**
+
+```
+LLMUsage           ← مصرف توکن (shared بین لایه‌ها) — @dataclass frozen
+SourceInfo         ← اطلاعات منبع (shared بین لایه‌ها) — @dataclass frozen
+PromptResult       ← خروجی PromptBuilder              [Layer 1]
+ProviderLLMResponse← خروجی Groq/Gemini                [Layer 2]
+LLMResponse        ← خروجی نهایی به routes.py         [Layer 3]
+```
+
+### **لایه‌بندی Usage:**
+
+| کلاس        | نوع                 | لایه  | کاربرد                   |
+| ----------- | ------------------- | ----- | ------------------------ |
+| `LLMUsage`  | `@dataclass frozen` | داخلی | groq/gemini/orchestrator |
+| `UsageInfo` | Pydantic BaseModel  | API   | routes.py → frontend     |
+
+### **Dependency Injection — Singletons:**
+
+همه سرویس‌های سنگین با `@lru_cache(maxsize=1)` در `dependencies.py` مدیریت می‌شوند:
+
+```python
+get_embedding_service()   # EmbeddingService
+get_tokenizer_service()   # TokenizerService
+get_qdrant_manager()      # QdrantManager
+get_bm25_indexer()        # BM25Indexer
+get_qdrant_indexer()      # QdrantIndexer
+get_hybrid_retriever()    # HybridRetriever
+get_llm_orchestrator()    # LLMOrchestrator
+```
+
+> **نکته:** `IndexingPipeline` عمداً per-request است چون به `db_session` per-request وابسته است.
+
+---
+
 ## 🚀 Scalability Plan
 
 | جزء        | الان (5 کاربر)  | آینده (50+ کاربر)                |
@@ -272,7 +309,7 @@ class Source(BaseModel):
     - Batch insert با `BATCH_SIZE=100` در Qdrant 🆕
 - TokenizerService: یکپارچه‌سازی با gte-multilingual-base (حذف tokenizer فارسی جداگانه) 🆕
 - QdrantIndexer: ذخیره vectors با Pydantic validation
-- BM25Indexer: keyword indexing با rebuild قابلیت
+- BM25Indexer: keyword indexing با rebuild قابلیت، thread-safe با `RLock` 🆕
 - IndexingPipeline: orchestrator کامل با rollback
 - بهینه‌سازی Batch: skip_bm25_rebuild برای پردازش پوشه (BM25 یک‌بار در پایان)
 
@@ -285,14 +322,14 @@ class Source(BaseModel):
 - Score thresholds و filtering
 - 🔵 BGE Reranker integration (آماده)
 
-**Schema های یکپارچه برای Retrieval:** 🆕
+**Schema های یکپارچه برای Retrieval (StrEnum):** 🆕
 
 ```python
 # backend/app/schemas/retrieval_schemas.py
-class RetrievalMethod   # BM25, VECTOR
-class ResultKeys        # CHUNK_ID, SCORE, RETRIEVAL_METHOD, METADATA, CONTENT
-class RRFKeys           # RRF_SCORE, BM25_SCORE, VECTOR_SCORE, BM25_RANK, VECTOR_RANK
-class RRFStats          # BOTH, ONLY_BM25, ONLY_VECTOR
+class RetrievalMethod(StrEnum)   # BM25, VECTOR
+class ResultKeys(StrEnum)        # CHUNK_ID, SCORE, RETRIEVAL_METHOD, METADATA, CONTENT
+class RRFKeys(StrEnum)           # RRF_SCORE, BM25_SCORE, VECTOR_SCORE, BM25_RANK, VECTOR_RANK
+class RRFStats(StrEnum)          # BOTH, ONLY_BM25, ONLY_VECTOR
 ```
 
 **Performance:**
@@ -302,11 +339,25 @@ class RRFStats          # BOTH, ONLY_BM25, ONLY_VECTOR
 
 #### ✅ **فاز 6: LLM Integration**
 
-- TokenizerService: Singleton با lazy loading
-- PromptBuilder: ساخت prompt بهینه با token counting + ارسال content به sources
-- GroqClient: Groq API - llama-3.3-70b-versatile
-- GeminiClient: Gemini API fallback - gemini-2.0-flash-exp
-- LLMOrchestrator: مدیریت Primary/Fallback با metadata کامل
+- TokenizerService: Singleton با lazy loading و thread safety
+- PromptBuilder: ساخت prompt بهینه با token budget دقیق + ارسال content به sources 🆕
+    - تشخیص سوالات سیستمی با Regex (fullmatch)
+    - محاسبه overhead بدون system_prompt (API جداگانه حساب می‌کند)
+    - `system_tokens` cache شده در `__init__`
+- GroqClient: Groq API - llama-3.3-70b-versatile با `FinishReason` Enum 🆕
+- GeminiClient: Gemini API fallback - gemini-2.5-flash با `_parse_finish_reason` ایمن 🆕
+- LLMOrchestrator: مدیریت Primary/Fallback با `LLMProvider` Enum 🆕
+
+**Schema های لایه‌بندی‌شده LLM:** 🆕
+
+```python
+# backend/app/schemas/llm_schemas.py  — ترتیب تعریف مهم است
+@dataclass(frozen=True) LLMUsage          # Layer shared
+@dataclass(frozen=True) SourceInfo        # Layer shared — قبل از PromptResult تعریف می‌شود
+@dataclass(frozen=True) PromptResult      # Layer 1
+@dataclass(frozen=True) ProviderLLMResponse  # Layer 2 — با create_error factory
+@dataclass(frozen=True) LLMResponse       # Layer 3 — با from_provider_response
+```
 
 #### ✅ **فاز 9: API Layer**
 
@@ -322,6 +373,7 @@ class RRFStats          # BOTH, ONLY_BM25, ONLY_VECTOR
 - Exception Handling: با traceback و type-based handling
 - Dependency Injection: Singleton pattern با `@lru_cache` برای همه سرویس‌ها
 - Security: path traversal protection با `Path(filename).name`
+- `_create_pipeline()` helper: حذف تکرار ساخت `IndexingPipeline` در routes 🆕
 
 #### ✅ **فاز 10: Frontend**
 
@@ -372,17 +424,17 @@ Meta/
 │   │   │   ├── dependencies.py       # Singleton management (@lru_cache)
 │   │   │   └── exceptions.py
 │   │   ├── schemas/
-│   │   │   ├── base_schemas.py       # Enums مشترک (LLMProvider, HealthStatus)
+│   │   │   ├── base_schemas.py       # Enums مشترک (LLMProvider, HealthStatus, FinishReason)
 │   │   │   ├── api_schemas.py        # UsageInfo, HealthResponse, SystemStats
 │   │   │   ├── chat_schemas.py       # ChatRequest, ChatResponse, Source
 │   │   │   ├── chunk_schemas.py      # ChunkMetadata (Qdrant payload)
-│   │   │   ├── llm_schemas.py        # PromptResult, LLMResponse, ProviderLLMResponse
-│   │   │   └── retrieval_schemas.py  # RetrievalMethod, ResultKeys, RRFKeys, RRFStats 🆕
+│   │   │   ├── llm_schemas.py        # LLMUsage, SourceInfo, PromptResult, ProviderLLMResponse, LLMResponse
+│   │   │   └── retrieval_schemas.py  # RetrievalMethod, ResultKeys, RRFKeys, RRFStats (StrEnum)
 │   │   ├── services/
 │   │   │   ├── embedding/
 │   │   │   │   ├── embedding_service.py
 │   │   │   │   └── tokenizer_service.py
-│   │   │   ├── vector/               # 🆕 تغییر نام از vector_store
+│   │   │   ├── vector/
 │   │   │   │   ├── qdrant_client.py
 │   │   │   │   └── qdrant_indexer.py
 │   │   │   ├── retrieval/
@@ -497,76 +549,12 @@ docker-compose logs -f postgres
 
 ---
 
-## 🐛 رفع مشکلات رایج
-
-### **1. Qdrant Connection Error:**
-
-```bash
-docker-compose restart qdrant
-curl http://localhost:6333/health
-```
-
-### **2. PostgreSQL Connection Error:**
-
-```bash
-docker-compose logs postgres
-docker-compose restart postgres
-```
-
-### **3. Frontend - CORS Error:**
-
-```bash
-# بررسی کنید Backend روشن است
-curl http://localhost:8000/health
-
-# بررسی Vite proxy config
-cat frontend/vite.config.js
-```
-
-### **4. Frontend - VPN Issues:**
-
-اگه با VPN مشکل دارید، در `vite.config.js`:
-
-```js
-server: {
-  host: '127.0.0.1',  // بجای localhost
-  port: 3000,
-}
-```
-
-### **5. پاک کردن همه داده‌ها:**
-
-```bash
-docker-compose down -v
-docker-compose up -d
-alembic upgrade head
-```
-
-### **6. مشکل dimension مغایرت Qdrant بعد از تغییر مدل embedding:**
-
-```bash
-# حذف collection قدیمی و ساخت مجدد
-curl -X DELETE http://localhost:6333/collections/meta_documents
-# سپس re-index همه اسناد
-```
-
-### **7. Warning های SentenceTransformer هنگام لود مدل:** 🆕
-
-```
-No sentence-transformers model found...
-Some weights of the model checkpoint were not used...
-```
-
-این warning ها طبیعی هستن — مدل gte-multilingual-base برای classification train شده ولی ما فقط از embedding layer استفاده می‌کنیم. تأثیری روی کیفیت embedding ندارند.
-
----
-
 ## 📌 اطلاعات نسخه
 
-- **نسخه:** 1.3.0
-- **آخرین بروزرسانی:** 2026-03-06
-- **وضعیت:** Code Review و Refactoring لایه‌های Embedding، Vector، Retrieval تکمیل شد ✅
-- **مرحله بعدی:** Code Review لایه LLM → فاز 7 - Caching & Optimization
+- **نسخه:** 1.4.0
+- **آخرین بروزرسانی:** 2026-03-07
+- **وضعیت:** Code Review لایه LLM تکمیل شد — Refactoring schemas، clients و routes ✅
+- **مرحله بعدی:** فاز 7 - Caching & Optimization
 
 ---
 
@@ -603,5 +591,3 @@ Some weights of the model checkpoint were not used...
 - ⬜ Deployment guide
 
 ---
-
-**ساخته شده با ❤️ برای پاسخگویی هوشمند به سوالات شهرسازی و عمران**
