@@ -72,8 +72,23 @@ class Settings( BaseSettings ):
     LLM_FALLBACK: str = "gemini"
 
     TEMPERATURE: float = 0.3          #میزان خلاقیت پاسخ‌ها از 0 تا 2
-    MAX_TOKENS: int = 2048
+    MAX_TOKENS: int = 2048          # ‫حداکثر توکن پاسخ LLM
     LLM_TIMEOUT: int = 30
+
+    #===================== Prompt Settings ====================
+    MAX_CONTEXT_TOKENS: int = 3000          # ‫حداکثر توکن context در پرامپت
+    DEFAULT_SYSTEM_PROMPT = """تو یک دستیار هوشمند متخصص در زمینه انقلاب اسلامی ایران هستی.
+
+    وظایف:
+    1. پاسخ دقیق بر اساس context.
+    2. زبان فارسی رسمی و روان.
+    3. ذکر منابع در صورت امکان.
+    4. اگر جواب در context نیست، صادقانه بگو.
+
+    محدودیت‌ها:
+    - حداکثر 3-4 پاراگراف.
+    - صرفاً زبان فارسی.
+    """
 
 
 settings = Settings()

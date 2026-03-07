@@ -61,8 +61,8 @@ class GeminiClient:
 
     def _check_safety_and_content( self, response: Any ) -> ProviderLLMResponse:
         """
-بررسی وضعیت فیلترهای ایمنی و استخراج محتوا  
-"""
+        بررسی وضعیت فیلترهای ایمنی و استخراج محتوا  
+        """
 
         if not response.candidates:
             # بررسی اینکه آیا دلیل blocked بودن در feedback هست
@@ -101,13 +101,12 @@ class GeminiClient:
         max_tokens: Optional[ int ] = None,
     ) -> ProviderLLMResponse:
         """
-تولید پاسخ برای یک پرامپت تکی
-"""
+        تولید پاسخ برای یک پرامپت تکی
+        """
         try:
-            config = types.GenerateContentConfig(
-                temperature=temperature if temperature is not None else self.default_temp,
-                max_output_tokens=max_tokens if max_tokens is not None else self.default_max_tokens,
-                safety_settings=self.safety_settings )
+            config = types.GenerateContentConfig( temperature=temperature if temperature is not None else self.default_temp,
+                                                  max_output_tokens=max_tokens if max_tokens is not None else self.default_max_tokens,
+                                                  safety_settings=self.safety_settings )
 
             # ارسال درخواست
             response = self.client.models.generate_content( model=self.model_name, contents=prompt, config=config )

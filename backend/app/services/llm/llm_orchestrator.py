@@ -24,14 +24,27 @@ class LLMOrchestrator:
         try:
             return self.clients[ provider ].chat( messages=messages, temperature=temp )
         except Exception as e:
-            return ProviderLLMResponse( success=False, error=str( e ) )
+            return ProviderLLMResponse(
+                success=False,
+                content=None,
+                model=provider,
+                usage={
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0
+                },
+                error=str( e ),
+                finish_reason="ERROR",
+            )
 
-    def generate_answer( self,
-                         query: str,
-                         chunks: List[ Dict ],
-                         temperature: Optional[ float ] = None,
-                         include_metadata: bool = True ) -> LLMResponse:
-
+    def generate_answer(
+        self,
+        query: str,
+        chunks: List[ Dict ],
+        temperature: Optional[ float ] = None,
+        include_metadata: bool = True,
+    ) -> LLMResponse:
+        """‫مدیریت کامل فرآیند تولید پاسخ با fallback خودکار"""
         log_message( LG.LLM, f"🤖 Request: {query[:50]}...", LogLevel.INFO )
 
         prompt = self.prompt_builder.build_prompt( query, chunks, include_metadata )
@@ -41,26 +54,25 @@ class LLMOrchestrator:
         current_provider: Literal[ "groq", "gemini" ] = "groq"
 
         # ‫2. تلاش دوم (Fallback): Gemini
-        if not res.get( "success" ) and self.use_fallback:
-            log_message( LG.LLM, f"⚠️ Groq failed ({res.get('error')}), trying Gemini...", LogLevel.WARNING )
+        if not res.success and self.use_fallback:
+            log_message( LG.LLM, f"⚠️ Groq failed ({res.error}), trying Gemini...", LogLevel.WARNING )
             res = self._execute_chat( "gemini", prompt, temperature )
             current_provider = "gemini"
 
-            if not res.get( "success" ):
-                log_message( LG.LLM, f"❌ Gemini also failed: {res.get('error')}", LogLevel.ERROR )
+            if not res.success:
+                log_message( LG.LLM, f"❌ Gemini also failed: {res.error}", LogLevel.ERROR )
 
         return LLMResponse.from_provider_response( res, prompt, current_provider )
 
 
 # ==================== Factory Function ====================
-def create_llm_orchestrator( tokenizer_service, max_context_tokens: int = 3000, use_fallback: bool = True ) -> LLMOrchestrator:
+def create_llm_orchestrator( tokenizer_service, use_fallback: bool = True ) -> LLMOrchestrator:
     return LLMOrchestrator(
         groq_client=create_groq_client(),
         gemini_client=create_gemini_client(),
         prompt_builder=create_prompt_builder(
             tokenizer_service=tokenizer_service,
             include_sources=True,
-            max_context_tokens=max_context_tokens,
         ),
         use_fallback=use_fallback,
     )

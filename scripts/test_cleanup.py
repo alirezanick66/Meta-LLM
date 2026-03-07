@@ -1,4 +1,5 @@
-import argparse, subprocess, sys, time, traceback
+import subprocess, sys, traceback, argparse
+import time
 from pathlib import Path
 import psycopg2
 import urllib.request
@@ -33,25 +34,25 @@ def run_alembic() -> bool:
 # ==================== Private Func ====================
 def _check_postgres() -> bool:
     """‫ چک واقعی اتصال به PostgreSQL   """
+
     try:
-        conn = psycopg2.connect(
-            host=settings.POSTGRES_HOST,
-            port=settings.POSTGRES_PORT,
-            dbname=settings.POSTGRES_DB,
-            user=settings.POSTGRES_USER,
-            password=settings.POSTGRES_PASSWORD,
-            connect_timeout=2,
-        )
-        conn.close()
-        return True
+        with psycopg2.connect(
+                host=settings.POSTGRES_HOST,
+                port=settings.POSTGRES_PORT,
+                dbname=settings.POSTGRES_DB,
+                user=settings.POSTGRES_USER,
+                password=settings.POSTGRES_PASSWORD,
+                connect_timeout=2,
+        ):
+            return True
     except Exception:
         return False
 
 
 def _check_qdrant() -> bool:
     """‫ چک واقعی اتصال به Qdrant با HTTP API"""
-    try:
 
+    try:
         req = urllib.request.urlopen( "http://localhost:6333/collections", timeout=2 )
         return req.status == 200
     except Exception:

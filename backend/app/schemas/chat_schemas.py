@@ -15,7 +15,7 @@ class ChatRequest( BaseModel ):
     @field_validator( 'query' )
     @classmethod
     def validate_query( cls, v: str ) -> str:
-        """اعتبارسنجی query"""
+        """ ‫اعتبارسنجی query"""
         if not v or not v.strip():
             raise ValueError( "سوال نمی‌تواند خالی باشد" )
         return v.strip()
@@ -75,7 +75,6 @@ class ChatResponse( BaseModel ):
                     "usage": {
                         "prompt_tokens": 2847,
                         "completion_tokens": 309
-          # total_tokens محاسبه می‌شود و نیازی به نوشتن نیست
                     },
                     "is_system_question": False,
                     "retrieval_count": 5,

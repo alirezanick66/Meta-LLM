@@ -52,8 +52,15 @@ class GroqClient:
             }
 
             content = response.choices[ 0 ].message.content
-
-            return ProviderLLMResponse( success=True, content=content, model=self.model, usage=usage, error=None )
+            finish_reason = response.choices[ 0 ].finish_reason or "STOP"
+            return ProviderLLMResponse(
+                success=True,
+                content=content,
+                model=self.model,
+                usage=usage,
+                error=None,
+                finish_reason=finish_reason,
+            )
 
         except APIError as e:          # ‫خطاهای اختصاصی Groq
             error_msg = f"Groq API Error: {e.message}"
@@ -75,7 +82,8 @@ class GroqClient:
                                         "completion_tokens": 0,
                                         "total_tokens": 0
                                     },
-                                    error=error_msg )
+                                    error=error_msg,
+                                    finish_reason="ERROR" )
 
     def generate( self, prompt: str, **kwargs ) -> ProviderLLMResponse:
         """تولید پاسخ برای یک پرامپت تکی"""

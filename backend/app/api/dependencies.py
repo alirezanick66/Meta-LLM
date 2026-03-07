@@ -76,7 +76,7 @@ def get_hybrid_retriever() -> HybridRetriever:
 def get_llm_orchestrator() -> LLMOrchestrator:
     """‫ Singleton instance از LLMOrchestrator"""
     log_message( LG.API, "🔧 ساخت LLMOrchestrator instance (Singleton)", LogLevel.INFO )
-    return create_llm_orchestrator( tokenizer_service=get_tokenizer_service(), max_context_tokens=3000, use_fallback=True )
+    return create_llm_orchestrator( tokenizer_service=get_tokenizer_service(), use_fallback=True )
 
 
 # ==================== Helper ====================

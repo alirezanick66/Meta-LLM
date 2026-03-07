@@ -1,11 +1,11 @@
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from fastapi import APIRouter, HTTPException, status, Depends, BackgroundTasks, UploadFile, File
 from sqlalchemy.orm import Session
-
+from pydantic import BaseModel
 from backend.app.core.database import get_db, SessionLocal
 from backend.app.core.config import settings
 from fastapi.concurrency import run_in_threadpool
@@ -22,6 +22,11 @@ from backend.app.utils.logging_config import log_message, LG, LogLevel
 from backend.app.services.document.indexing_pipeline import IndexingPipeline
 from backend.app.services.document.document_processor import SUPPORTED_EXTENSIONS
 import shutil
+
+
+class BulkDeleteRequest( BaseModel ):
+    ids: List[ int ]
+
 
 # ==================== Router ====================
 router = APIRouter( prefix="/api", tags=[ "API" ] )
@@ -187,7 +192,7 @@ async def upload_document(
         )
 
     # پیشنهاد: استفاده از تنظیمات برای مسیر ذخیره‌سازی
-    documents_dir = documents_dir = Path( settings.DOCUMENTS_DIR )
+    documents_dir = Path( settings.DOCUMENTS_DIR )
     documents_dir.mkdir( parents=True, exist_ok=True )
     dest_path = documents_dir / file.filename
 
@@ -234,7 +239,7 @@ async def upload_document(
 )
 async def index_folder() -> Dict[ str, Any ]:
 
-    folder_path = getattr( settings, 'DOCUMENTS_DIR', "backend/data/documents" )
+    folder_path = str( Path( settings.DOCUMENTS_DIR ) )
 
     def run():
         with SessionLocal() as db:
@@ -285,7 +290,6 @@ async def list_documents( db: Session = Depends( get_db ) ) -> Dict[ str, Any ]:
     }
 
 
-    # backend/app/api/routes.py
 @router.delete( "/documents/{document_id}" )
 async def delete_document( document_id: int ) -> Dict[ str, Any ]:
 
@@ -305,8 +309,8 @@ async def delete_document( document_id: int ) -> Dict[ str, Any ]:
 
 
 @router.post( "/documents/bulk-delete" )
-async def bulk_delete( body: dict ) -> Dict[ str, Any ]:
-    ids = body.get( "ids", [] )
+async def bulk_delete( body: BulkDeleteRequest ) -> Dict[ str, Any ]:
+    ids = body.ids
 
     def run():
         with SessionLocal() as db:

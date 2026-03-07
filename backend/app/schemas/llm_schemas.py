@@ -1,4 +1,4 @@
-from typing import TypedDict, Optional, Dict, List, Any, Literal
+from typing import Optional, Dict, List, Any, Literal
 from dataclasses import dataclass, field
 
 # ==================== Layer 1: Prompt ====================
@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 @dataclass( slots=True, frozen=True )
 class PromptResult:
-    """‫ نتیجه ساخت پرامپت توسط PromptBuilder"""
+    """‫نتیجه ساخت پرامپت توسط PromptBuilder"""
     system_prompt: str
     user_prompt: str
     sources_used: List[ Dict[ str, Any ] ]
@@ -17,17 +17,15 @@ class PromptResult:
 # ==================== Layer 2: Provider Raw Response ====================
 
 
-class ProviderLLMResponse( TypedDict, total=False ):
-    """
-    ‫ پاسخ خام از Provider (Gemini/Groq)
-    ‫ total=False چون finish_reason فقط Gemini داره
-    """
+@dataclass( slots=True, frozen=True )
+class ProviderLLMResponse:
+    """‫پاسخ خام از Provider (Gemini/Groq)"""
     success: bool
     content: Optional[ str ]
     model: str
     usage: Dict[ str, int ]
-    error: Optional[ str ]
-    finish_reason: Optional[ str ]
+    error: Optional[ str ] = None
+    finish_reason: Optional[ str ] = None
 
 
 # ==================== Layer 3: Application Response ====================
@@ -35,7 +33,7 @@ class ProviderLLMResponse( TypedDict, total=False ):
 
 @dataclass( slots=True, frozen=True )
 class SourceInfo:
-    """‫ اطلاعات منبع استفاده شده — نسخه داخلی"""
+    """‫اطلاعات منبع استفاده شده — نسخه داخلی"""
     index: int
     chunk_id: Optional[ str ]
     source: str
@@ -45,7 +43,7 @@ class SourceInfo:
 
 @dataclass( slots=True, frozen=True )
 class LLMResponse:
-    """‫ پاسخ نهایی application به consumer"""
+    """‫پاسخ نهایی application به consumer"""
     success: bool
     answer: Optional[ str ] = None
     provider: Optional[ Literal[ "groq", "gemini" ] ] = None
@@ -58,13 +56,19 @@ class LLMResponse:
     finish_reason: Optional[ str ] = None
 
     @classmethod
-    def from_provider_response( cls, response: ProviderLLMResponse, prompt_result: PromptResult,
-                                provider_name: Literal[ "groq", "gemini" ] ) -> "LLMResponse":
-        """‫ تبدیل Provider response به Application response"""
-        if not response.get( "success" ):
+    def from_provider_response(
+        cls,
+        response: ProviderLLMResponse,
+        prompt_result: PromptResult,
+        provider_name: Literal[ "groq", "gemini" ],
+    ) -> "LLMResponse":
+        """‫تبدیل Provider response به Application response"""
+        if not response.success:
             return cls(
                 success=False,
-                error=response.get( "error" ),
+                error=response.error,
+                provider=provider_name,
+                model=response.model,
                 prompt_tokens=prompt_result.total_tokens,
                 is_system_question=prompt_result.is_system_question,
             )
@@ -81,12 +85,12 @@ class LLMResponse:
 
         return cls(
             success=True,
-            answer=response.get( "content" ),
+            answer=response.content,
             provider=provider_name,
-            model=response.get( "model" ),
-            usage=response.get( "usage", {} ),
+            model=response.model,
+            usage=response.usage,
             sources=sources,
             prompt_tokens=prompt_result.total_tokens,
             is_system_question=prompt_result.is_system_question,
-            finish_reason=response.get( "finish_reason" ),
+            finish_reason=response.finish_reason,
         )
