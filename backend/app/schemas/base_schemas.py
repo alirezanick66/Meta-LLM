@@ -10,3 +10,12 @@ class LLMProvider( str, Enum ):
 class HealthStatus( str, Enum ):
     HEALTHY = "healthy"
     UNHEALTHY = "unhealthy"
+
+
+class FinishReason( str, Enum ):
+    STOP = "STOP"
+    ERROR = "ERROR"
+    SAFETY = "SAFETY"
+    MAX_TOKENS = "MAX_TOKENS"
+    INVALID_STRUCTURE = "INVALID_STRUCTURE"
+    UNKNOWN = "UNKNOWN"

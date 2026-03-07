@@ -2,8 +2,9 @@ from typing import Optional, List
 from groq import APIError, Groq
 from groq.types.chat import ChatCompletionMessageParam
 from backend.app.core.config import settings
+from backend.app.schemas.base_schemas import FinishReason
 from backend.app.utils.logging_config import log_message, LG, LogLevel
-from backend.app.schemas.llm_schemas import ProviderLLMResponse
+from backend.app.schemas.llm_schemas import LLMUsage, ProviderLLMResponse
 
 
 class GroqClient:
@@ -45,14 +46,15 @@ class GroqClient:
 
             # استخراج متمرکز داده‌ها
             usage_data = response.usage
-            usage = {
-                "prompt_tokens": usage_data.prompt_tokens if usage_data else 0,
-                "completion_tokens": usage_data.completion_tokens if usage_data else 0,
-                "total_tokens": usage_data.total_tokens if usage_data else 0,
-            }
+            usage = LLMUsage(
+                prompt_tokens=usage_data.prompt_tokens if usage_data else 0,
+                completion_tokens=usage_data.completion_tokens if usage_data else 0,
+                total_tokens=usage_data.total_tokens if usage_data else 0,
+            )
 
             content = response.choices[ 0 ].message.content
-            finish_reason = response.choices[ 0 ].finish_reason or "STOP"
+            finish_reason = FinishReason(
+                response.choices[ 0 ].finish_reason.upper() ) if response.choices[ 0 ].finish_reason else FinishReason.STOP
             return ProviderLLMResponse(
                 success=True,
                 content=content,
@@ -65,25 +67,12 @@ class GroqClient:
         except APIError as e:          # ‫خطاهای اختصاصی Groq
             error_msg = f"Groq API Error: {e.message}"
             log_message( LG.LLM, f"❌ {error_msg}", LogLevel.ERROR )
-            return self._create_error_result( error_msg )
+            return ProviderLLMResponse.create_error( error_msg, self.model )
 
         except Exception as e:
             error_msg = f"Unexpected Error: {str(e)}"
             log_message( LG.LLM, f"❌ {error_msg}", LogLevel.ERROR )
-            return self._create_error_result( error_msg )
-
-    def _create_error_result( self, error_msg: str ) -> ProviderLLMResponse:
-        """کمک به یکپارچگی خروجی‌های خطا"""
-        return ProviderLLMResponse( success=False,
-                                    content=None,
-                                    model=self.model,
-                                    usage={
-                                        "prompt_tokens": 0,
-                                        "completion_tokens": 0,
-                                        "total_tokens": 0
-                                    },
-                                    error=error_msg,
-                                    finish_reason="ERROR" )
+            return ProviderLLMResponse.create_error( error_msg, self.model )
 
     def generate( self, prompt: str, **kwargs ) -> ProviderLLMResponse:
         """تولید پاسخ برای یک پرامپت تکی"""

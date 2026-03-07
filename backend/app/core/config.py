@@ -77,7 +77,7 @@ class Settings( BaseSettings ):
 
     #===================== Prompt Settings ====================
     MAX_CONTEXT_TOKENS: int = 3000          # ‫حداکثر توکن context در پرامپت
-    DEFAULT_SYSTEM_PROMPT = """تو یک دستیار هوشمند متخصص در زمینه انقلاب اسلامی ایران هستی.
+    DEFAULT_SYSTEM_PROMPT: str = """تو یک دستیار هوشمند متخصص در زمینه انقلاب اسلامی ایران هستی.
 
     وظایف:
     1. پاسخ دقیق بر اساس context.

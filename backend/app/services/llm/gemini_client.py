@@ -3,7 +3,8 @@ from google import genai
 from google.genai import types
 from backend.app.core.config import settings
 from backend.app.utils.logging_config import log_message, LG, LogLevel
-from backend.app.schemas.llm_schemas import ProviderLLMResponse
+from backend.app.schemas.llm_schemas import LLMUsage, ProviderLLMResponse
+from backend.app.schemas.base_schemas import FinishReason
 
 
 class GeminiClient:
@@ -15,14 +16,15 @@ class GeminiClient:
         if not settings.GEMINI_API_KEY:
             raise ValueError( "❌ GEMINI_API_KEY یافت نشد!" )
 
-        self.client = genai.Client( api_key=settings.GEMINI_API_KEY, http_options={ 'timeout': settings.LLM_TIMEOUT } )
+        self.client = genai.Client(
+            api_key=settings.GEMINI_API_KEY,
+            http_options={ "timeout": settings.LLM_TIMEOUT },
+        )
         self.model_name = settings.GEMINI_MODEL
-
-        # ذخیره تنظیمات پیش‌فرض برای استفاده متدها
         self.default_temp = settings.TEMPERATURE
         self.default_max_tokens = settings.MAX_TOKENS
 
-        # تنظیمات Safety (برای پاسخ دادن دستی در درخواست‌ها)
+        # ‫تنظیمات Safety
         self.safety_settings = [
             types.SafetySetting(
                 category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -36,63 +38,69 @@ class GeminiClient:
 
         log_message( LG.LLM, f"GeminiClient (New SDK) آماده شد - Model: {self.model_name}", LogLevel.INFO )
 
-    def _extract_usage( self, response: Any ) -> Dict[ str, int ]:
+    def _extract_usage( self, response: Any ) -> LLMUsage:
         try:
             metadata = response.usage_metadata
-            return {
-                "prompt_tokens": metadata.prompt_token_count,
-                "completion_tokens": metadata.candidates_token_count,
-                "total_tokens": metadata.total_token_count
-            }
+            return LLMUsage(
+                prompt_tokens=metadata.prompt_token_count,
+                completion_tokens=metadata.candidates_token_count,
+                total_tokens=metadata.total_token_count,
+            )
         except AttributeError:
-            return { "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0 }
+            return LLMUsage()
 
-    def _create_error_result( self, error_msg: str, finish_reason: str = "ERROR" ) -> ProviderLLMResponse:
-        return ProviderLLMResponse( success=False,
-                                    content=None,
-                                    model=self.model_name,
-                                    usage={
-                                        "prompt_tokens": 0,
-                                        "completion_tokens": 0,
-                                        "total_tokens": 0
-                                    },
-                                    error=error_msg,
-                                    finish_reason=finish_reason )
+    def _parse_finish_reason( self, raw: str ) -> FinishReason:
+        """‫تبدیل ایمن string به FinishReason Enum"""
+        try:
+            return FinishReason( raw.upper() )
+        except ValueError:
+            return FinishReason.UNKNOWN
 
     def _check_safety_and_content( self, response: Any ) -> ProviderLLMResponse:
         """
-        بررسی وضعیت فیلترهای ایمنی و استخراج محتوا  
+        ‫بررسی وضعیت فیلترهای ایمنی و استخراج محتوا
         """
-
         if not response.candidates:
-            # بررسی اینکه آیا دلیل blocked بودن در feedback هست
-            block_reason = getattr( response, 'prompt_feedback', None )
+            block_reason = getattr( response, "prompt_feedback", None )
             reason_str = block_reason.block_reason.name if block_reason else "UNKNOWN"
-            return self._create_error_result( f"ورودی یا پاسخ مسدود شد. دلیل: {reason_str}", finish_reason="SAFETY" )
+            return ProviderLLMResponse.create_error(
+                f"ورودی یا پاسخ مسدود شد. دلیل: {reason_str}",
+                self.model_name,
+                FinishReason.SAFETY,
+            )
 
         candidate = response.candidates[ 0 ]
 
-        # بررسی Finish Reason
         finish_reason_enum = candidate.finish_reason
-        finish_reason = finish_reason_enum.name if finish_reason_enum else "UNKNOWN"
+        finish_reason_str = finish_reason_enum.name if finish_reason_enum else "UNKNOWN"
+        finish_reason = self._parse_finish_reason( finish_reason_str )
 
-        if finish_reason == "SAFETY":
-            return self._create_error_result( "پاسخ توسط فیلترهای ایمنی مسدود شد.", finish_reason="SAFETY" )
+        if finish_reason == FinishReason.SAFETY:
+            return ProviderLLMResponse.create_error(
+                "پاسخ توسط فیلترهای ایمنی مسدود شد.",
+                self.model_name,
+                FinishReason.SAFETY,
+            )
 
-        if finish_reason == "MAX_TOKENS":
+        if finish_reason == FinishReason.MAX_TOKENS:
             log_message( LG.LLM, "⚠️ پاسخ ناقص ماند (Max Tokens).", LogLevel.WARNING )
 
-        # استخراج متن
         try:
             content = candidate.content.parts[ 0 ].text
-            return ProviderLLMResponse( success=True,
-                                        content=content,
-                                        model=self.model_name,
-                                        usage=self._extract_usage( response ),
-                                        error=None,
-                                        finish_reason=finish_reason )
-        except ( IndexError, AttributeError ) as e:
-            return self._create_error_result( "ساختار پاسخ نامعتبر است.", finish_reason="INVALID_STRUCTURE" )
+            return ProviderLLMResponse(
+                success=True,
+                content=content,
+                model=self.model_name,
+                usage=self._extract_usage( response ),
+                error=None,
+                finish_reason=finish_reason,
+            )
+        except ( IndexError, AttributeError ):
+            return ProviderLLMResponse.create_error(
+                "ساختار پاسخ نامعتبر است.",
+                self.model_name,
+                FinishReason.INVALID_STRUCTURE,
+            )
 
     def generate(
         self,
@@ -101,33 +109,34 @@ class GeminiClient:
         max_tokens: Optional[ int ] = None,
     ) -> ProviderLLMResponse:
         """
-        تولید پاسخ برای یک پرامپت تکی
+        ‫تولید پاسخ برای یک پرامپت تکی
         """
         try:
-            config = types.GenerateContentConfig( temperature=temperature if temperature is not None else self.default_temp,
-                                                  max_output_tokens=max_tokens if max_tokens is not None else self.default_max_tokens,
-                                                  safety_settings=self.safety_settings )
-
-            # ارسال درخواست
+            config = types.GenerateContentConfig(
+                temperature=temperature if temperature is not None else self.default_temp,
+                max_output_tokens=max_tokens if max_tokens is not None else self.default_max_tokens,
+                safety_settings=self.safety_settings,
+            )
             response = self.client.models.generate_content( model=self.model_name, contents=prompt, config=config )
-
             return self._check_safety_and_content( response )
 
         except Exception as e:
             error_msg = f"Gemini Generation Error: {str(e)}"
             log_message( LG.LLM, f"❌ {error_msg}", LogLevel.ERROR )
-            return self._create_error_result( error_msg )
+            return ProviderLLMResponse.create_error( error_msg, self.model_name )
 
-    def chat( self,
-              messages: List[ Dict[ str, str ] ],
-              temperature: Optional[ float ] = None,
-              max_tokens: Optional[ int ] = None ) -> ProviderLLMResponse:
+    def chat(
+        self,
+        messages: List[ Dict[ str, str ] ],
+        temperature: Optional[ float ] = None,
+        max_tokens: Optional[ int ] = None,
+    ) -> ProviderLLMResponse:
         """
-        ‫ چت چند نوبتی با پشتیبانی از system_instruction
+        ‫چت چند نوبتی با پشتیبانی از system_instruction
         """
         try:
             if not messages:
-                return self._create_error_result( "لیست پیام‌ها خالی است." )
+                return ProviderLLMResponse.create_error( "لیست پیام‌ها خالی است.", self.model_name )
 
             # ‫جداسازی system prompt و ارسال به عنوان system_instruction
             system_text = next( ( m.get( "content", "" ) for m in messages if m.get( "role" ) == "system" ), None )
@@ -135,7 +144,7 @@ class GeminiClient:
             # ‫فقط پیام‌های user/model — بدون system
             history_contents = [ {
                 "role": msg[ "role" ],
-                "parts": [ types.Part( text=msg.get( "content", "" ) ) ]
+                "parts": [ types.Part( text=msg.get( "content", "" ) ) ],
             } for msg in messages if msg.get( "role" ) != "system" ]
 
             config = types.GenerateContentConfig(
@@ -146,18 +155,17 @@ class GeminiClient:
             )
 
             response = self.client.models.generate_content( model=self.model_name, contents=history_contents, config=config )
-
             return self._check_safety_and_content( response )
 
         except Exception as e:
             error_msg = f"Gemini Chat Error: {str(e)}"
             log_message( LG.LLM, f"❌ {error_msg}", LogLevel.ERROR )
-            return self._create_error_result( error_msg )
+            return ProviderLLMResponse.create_error( error_msg, self.model_name )
 
 
-def get_gemini_model_list():
+def get_gemini_model_list() -> None:
     """
-   ‫ دریافت اطلاعات مدل Gemini (مثل نام، ورژن، تنظیمات)
+    ‫دریافت اطلاعات مدل Gemini (مثل نام، ورژن، تنظیمات)
     """
     try:
         client = genai.Client( api_key=settings.GEMINI_API_KEY )

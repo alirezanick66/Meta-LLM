@@ -1,8 +1,10 @@
 from typing import Optional, List, Dict, Literal
+
+from backend.app.schemas.base_schemas import FinishReason, LLMProvider
 from backend.app.services.llm.groq_client import GroqClient, create_groq_client
 from backend.app.services.llm.gemini_client import GeminiClient, create_gemini_client
 from backend.app.services.llm.prompt_builder import PromptBuilder, create_prompt_builder
-from backend.app.schemas.llm_schemas import LLMResponse, PromptResult, ProviderLLMResponse
+from backend.app.schemas.llm_schemas import LLMResponse, LLMUsage, PromptResult, ProviderLLMResponse
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 
@@ -24,18 +26,7 @@ class LLMOrchestrator:
         try:
             return self.clients[ provider ].chat( messages=messages, temperature=temp )
         except Exception as e:
-            return ProviderLLMResponse(
-                success=False,
-                content=None,
-                model=provider,
-                usage={
-                    "prompt_tokens": 0,
-                    "completion_tokens": 0,
-                    "total_tokens": 0
-                },
-                error=str( e ),
-                finish_reason="ERROR",
-            )
+            return ProviderLLMResponse.create_error( str( e ), provider, FinishReason.ERROR )
 
     def generate_answer(
         self,
@@ -51,13 +42,13 @@ class LLMOrchestrator:
 
         # ‫1. تلاش اول: Groq
         res = self._execute_chat( "groq", prompt, temperature )
-        current_provider: Literal[ "groq", "gemini" ] = "groq"
+        current_provider: LLMProvider = LLMProvider.GROQ
 
         # ‫2. تلاش دوم (Fallback): Gemini
         if not res.success and self.use_fallback:
             log_message( LG.LLM, f"⚠️ Groq failed ({res.error}), trying Gemini...", LogLevel.WARNING )
             res = self._execute_chat( "gemini", prompt, temperature )
-            current_provider = "gemini"
+            current_provider = LLMProvider.GEMINI
 
             if not res.success:
                 log_message( LG.LLM, f"❌ Gemini also failed: {res.error}", LogLevel.ERROR )

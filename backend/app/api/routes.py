@@ -104,13 +104,17 @@ async def chat(
             ) for src in llm_response.sources
         ]
 
-        metadata = ChatMetadata( provider=LLMProvider( llm_response.provider ) if llm_response.provider else LLMProvider.GROQ,
-                                 model=llm_response.model or "unknown",
-                                 usage=UsageInfo( prompt_tokens=llm_response.usage.get( 'prompt_tokens', 0 ),
-                                                  completion_tokens=llm_response.usage.get( 'completion_tokens', 0 ) ),
-                                 is_system_question=llm_response.is_system_question,
-                                 retrieval_count=len( chunks ),
-                                 response_time=round( response_time, 2 ) )
+        metadata = ChatMetadata(
+            provider=LLMProvider( llm_response.provider ) if llm_response.provider else LLMProvider.GROQ,
+            model=llm_response.model or "unknown",
+            usage=UsageInfo(
+                prompt_tokens=llm_response.usage.prompt_tokens,
+                completion_tokens=llm_response.usage.completion_tokens,
+            ),
+            is_system_question=llm_response.is_system_question,
+            retrieval_count=len( chunks ),
+            response_time=round( response_time, 2 ),
+        )
 
         log_message( LG.API, f"✅ پاسخ آماده شد - زمان: {response_time:.2f}s", LogLevel.INFO )
 

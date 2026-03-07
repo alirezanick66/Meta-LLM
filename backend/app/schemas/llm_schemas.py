@@ -1,7 +1,17 @@
 from typing import Optional, Dict, List, Any, Literal
 from dataclasses import dataclass, field
 
+from backend.app.schemas.base_schemas import FinishReason, LLMProvider
+
 # ==================== Layer 1: Prompt ====================
+
+
+@dataclass( slots=True, frozen=True )
+class LLMUsage:
+    """‫اطلاعات مصرف توکن — لایه داخلی"""
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
 
 
 @dataclass( slots=True, frozen=True )
@@ -23,9 +33,26 @@ class ProviderLLMResponse:
     success: bool
     content: Optional[ str ]
     model: str
-    usage: Dict[ str, int ]
+    usage: LLMUsage
     error: Optional[ str ] = None
-    finish_reason: Optional[ str ] = None
+    finish_reason: Optional[ FinishReason ] = None
+
+    @classmethod
+    def create_error(
+        cls,
+        msg: str,
+        model: str,
+        finish_reason: FinishReason = FinishReason.ERROR,
+    ) -> "ProviderLLMResponse":
+        """‫factory method برای ساخت error response"""
+        return cls(
+            success=False,
+            content=None,
+            model=model,
+            usage=LLMUsage(),
+            error=msg,
+            finish_reason=finish_reason,
+        )
 
 
 # ==================== Layer 3: Application Response ====================
@@ -46,21 +73,21 @@ class LLMResponse:
     """‫پاسخ نهایی application به consumer"""
     success: bool
     answer: Optional[ str ] = None
-    provider: Optional[ Literal[ "groq", "gemini" ] ] = None
+    provider: Optional[ LLMProvider ] = None
     model: Optional[ str ] = None
-    usage: Dict[ str, int ] = field( default_factory=dict )
+    usage: LLMUsage = field( default_factory=LLMUsage )
     sources: List[ SourceInfo ] = field( default_factory=list )
     prompt_tokens: int = 0
     is_system_question: bool = False
     error: Optional[ str ] = None
-    finish_reason: Optional[ str ] = None
+    finish_reason: Optional[ FinishReason ] = None
 
     @classmethod
     def from_provider_response(
         cls,
         response: ProviderLLMResponse,
         prompt_result: PromptResult,
-        provider_name: Literal[ "groq", "gemini" ],
+        provider_name: LLMProvider,
     ) -> "LLMResponse":
         """‫تبدیل Provider response به Application response"""
         if not response.success:
