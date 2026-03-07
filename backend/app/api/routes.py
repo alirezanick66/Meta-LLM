@@ -28,6 +28,16 @@ class BulkDeleteRequest( BaseModel ):
     ids: List[ int ]
 
 
+def _create_pipeline( db: Session ) -> IndexingPipeline:
+    return IndexingPipeline(
+        db_session=db,
+        embedding_service=get_embedding_service(),
+        qdrant_indexer=get_qdrant_indexer(),
+        bm25_indexer=get_bm25_indexer(),
+        chunker=MarkdownChunker( tokenizer_service=get_tokenizer_service() ),
+    )
+
+
 # ==================== Router ====================
 router = APIRouter( prefix="/api", tags=[ "API" ] )
 
@@ -75,7 +85,7 @@ async def chat(
             chunk[ 'content' ] = contents_map.get( chunk[ 'chunk_id' ], "" )
 
         # ==================== مرحله 3: LLM Generation ====================
-        log_message( LG.API, "🤖 مرحله 2: تولید پاسخ با LLM...", LogLevel.DEBUG )
+        log_message( LG.API, "🤖 مرحله 3: تولید پاسخ با LLM...", LogLevel.DEBUG )
         llm_response = await run_in_threadpool( orchestrator.generate_answer,
                                                 query=request.query,
                                                 chunks=chunks,
@@ -213,13 +223,7 @@ async def upload_document(
         # ‫با استفاده از context manager مطمئن می‌شویم که سشن حتماً بسته می‌شود
         with SessionLocal() as bg_db:
             try:
-                pipeline = IndexingPipeline(
-                    db_session=bg_db,
-                    embedding_service=get_embedding_service(),
-                    qdrant_indexer=get_qdrant_indexer(),
-                    bm25_indexer=get_bm25_indexer(),
-                    chunker=MarkdownChunker( tokenizer_service=get_tokenizer_service() ),
-                )
+                pipeline = _create_pipeline( bg_db )          # ← جایگزین
                 result = pipeline.index_document( str( dest_path ) )
                 log_message( LG.API, f"✅ Indexing تکمیل شد: {result}", LogLevel.INFO )
             except Exception as e:
@@ -247,13 +251,7 @@ async def index_folder() -> Dict[ str, Any ]:
 
     def run():
         with SessionLocal() as db:
-            pipeline = IndexingPipeline(
-                db_session=db,
-                embedding_service=get_embedding_service(),
-                qdrant_indexer=get_qdrant_indexer(),
-                bm25_indexer=get_bm25_indexer(),
-                chunker=MarkdownChunker( tokenizer_service=get_tokenizer_service() ),
-            )
+            pipeline = _create_pipeline( db )          # ← جایگزین
             return pipeline.index_folder( folder_path )
 
     result = await run_in_threadpool( run )
@@ -299,13 +297,7 @@ async def delete_document( document_id: int ) -> Dict[ str, Any ]:
 
     def run():
         with SessionLocal() as db:
-            pipeline = IndexingPipeline(
-                db_session=db,
-                embedding_service=get_embedding_service(),
-                qdrant_indexer=get_qdrant_indexer(),
-                bm25_indexer=get_bm25_indexer(),
-                chunker=MarkdownChunker( tokenizer_service=get_tokenizer_service() ),
-            )
+            pipeline = _create_pipeline( db )          # ← جایگزین
             pipeline._delete_document_data( document_id, rebuild_bm25=True )
 
     await run_in_threadpool( run )
@@ -318,13 +310,7 @@ async def bulk_delete( body: BulkDeleteRequest ) -> Dict[ str, Any ]:
 
     def run():
         with SessionLocal() as db:
-            pipeline = IndexingPipeline(
-                db_session=db,
-                embedding_service=get_embedding_service(),
-                qdrant_indexer=get_qdrant_indexer(),
-                bm25_indexer=get_bm25_indexer(),
-                chunker=MarkdownChunker( tokenizer_service=get_tokenizer_service() ),
-            )
+            pipeline = _create_pipeline( db )          # ← جایگزین
             pg_manager = PostgresManager( db )
             for doc_id in ids:
                 pipeline._delete_document_data( doc_id, rebuild_bm25=False )

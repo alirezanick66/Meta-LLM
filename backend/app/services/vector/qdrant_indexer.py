@@ -104,7 +104,7 @@ class QdrantIndexer:
             True در صورت موفقیت
         """
         try:
-            success = self.qdrant.delete_by_document( document_id )
+            success = self.qdrant.delete_document_vectors( document_id )
 
             if success:
                 log_message( LG.Database, f"✅ Vectors document {document_id} حذف شد", LogLevel.INFO )

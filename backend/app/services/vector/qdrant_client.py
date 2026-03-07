@@ -143,7 +143,7 @@ class QdrantManager:
             log_message( LG.Retrieval, f"خطا در جستجوی vectors: {str(e)}", LogLevel.ERROR )
             return []
 
-    def delete_by_document( self, document_id: int ) -> bool:
+    def delete_document_vectors( self, document_id: int ) -> bool:
         """ ‫حذف تمام vectors مربوط به یک document"""
         try:
             if self.client is None:

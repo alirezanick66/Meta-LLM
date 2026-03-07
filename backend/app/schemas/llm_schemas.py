@@ -1,8 +1,7 @@
 from typing import Optional, List
 from dataclasses import dataclass, field
-from backend.app.schemas.llm_schemas import SourceInfo
-from backend.app.schemas.base_schemas import FinishReason, LLMProvider
 
+from backend.app.schemas.base_schemas import FinishReason, LLMProvider
 # ==================== Layer 1: Prompt ====================
 
 
@@ -12,6 +11,16 @@ class LLMUsage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+
+
+@dataclass( slots=True, frozen=True )
+class SourceInfo:
+    """‫اطلاعات منبع استفاده شده — نسخه داخلی"""
+    index: int
+    chunk_id: Optional[ str ]
+    source: str
+    hierarchy: str
+    content: str
 
 
 @dataclass( slots=True, frozen=True )
@@ -56,16 +65,6 @@ class ProviderLLMResponse:
 
 
 # ==================== Layer 3: Application Response ====================
-
-
-@dataclass( slots=True, frozen=True )
-class SourceInfo:
-    """‫اطلاعات منبع استفاده شده — نسخه داخلی"""
-    index: int
-    chunk_id: Optional[ str ]
-    source: str
-    hierarchy: str
-    content: str
 
 
 @dataclass( slots=True, frozen=True )
