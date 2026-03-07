@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Tuple
 import re
-from backend.app.schemas.llm_schemas import PromptResult
+from backend.app.schemas.llm_schemas import PromptResult, SourceInfo
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 from backend.app.core.config import settings
 from backend.app.services.embedding.tokenizer_service import TokenizerService
@@ -81,7 +81,7 @@ class PromptBuilder:
             if is_sys:
                 log_message( LG.LLM, "پرامپت سیستمی هستش.", LogLevel.INFO )
                 user_prompt = self.SYSTEM_TEMPLATE.format( question=query )
-                sources = []
+                sources: List[ SourceInfo ] = []
                 tokens = self.system_tokens + self.count_tokens( user_prompt )
             else:
                 user_prompt, sources, tokens = self._build_rag_prompt( query, chunks, include_metadata )
@@ -100,7 +100,7 @@ class PromptBuilder:
             raise
 
     def _build_rag_prompt( self, query: str, chunks: List[ Dict[ str, Any ] ],
-                           include_metadata: bool ) -> Tuple[ str, List[ Dict ], int ]:
+                           include_metadata: bool ) -> Tuple[ str, List[ SourceInfo ], int ]:
         """
         ‫ساخت پرامپت RAG با مدیریت هوشمند توکن
 
@@ -137,13 +137,14 @@ class PromptBuilder:
                 log_message( LG.LLM, f"Context truncated at chunk {idx - 1}", LogLevel.WARNING )
                 break
 
-            sources.append( {
-                "index": idx,
-                "chunk_id": chunk.get( "chunk_id" ),
-                "source": metadata.get( "source", "Unknown" ),
-                "hierarchy": metadata.get( "hierarchy", "" ),
-                "content": content,
-            } )
+            sources.append(
+                SourceInfo(
+                    index=idx,
+                    chunk_id=chunk.get( "chunk_id" ),
+                    source=metadata.get( "source", "Unknown" ),
+                    hierarchy=hierarchy,
+                    content=content,
+                ) )
 
             context_parts.append( f"{header}{content}" )
             current_tokens += chunk_tokens

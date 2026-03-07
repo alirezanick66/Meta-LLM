@@ -4,7 +4,7 @@ from backend.app.schemas.base_schemas import FinishReason, LLMProvider
 from backend.app.services.llm.groq_client import GroqClient, create_groq_client
 from backend.app.services.llm.gemini_client import GeminiClient, create_gemini_client
 from backend.app.services.llm.prompt_builder import PromptBuilder, create_prompt_builder
-from backend.app.schemas.llm_schemas import LLMResponse, LLMUsage, PromptResult, ProviderLLMResponse
+from backend.app.schemas.llm_schemas import LLMResponse, PromptResult, ProviderLLMResponse
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 

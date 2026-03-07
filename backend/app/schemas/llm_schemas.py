@@ -1,6 +1,6 @@
-from typing import Optional, Dict, List, Any, Literal
+from typing import Optional, List
 from dataclasses import dataclass, field
-
+from backend.app.schemas.llm_schemas import SourceInfo
 from backend.app.schemas.base_schemas import FinishReason, LLMProvider
 
 # ==================== Layer 1: Prompt ====================
@@ -19,7 +19,7 @@ class PromptResult:
     """‫نتیجه ساخت پرامپت توسط PromptBuilder"""
     system_prompt: str
     user_prompt: str
-    sources_used: List[ Dict[ str, Any ] ]
+    sources_used: List[ SourceInfo ]
     total_tokens: int
     is_system_question: bool
 
@@ -102,11 +102,11 @@ class LLMResponse:
 
         sources = [
             SourceInfo(
-                index=s.get( "index", 0 ),
-                chunk_id=s.get( "chunk_id" ),
-                source=s.get( "source", "Unknown" ),
-                hierarchy=s.get( "hierarchy", "" ),
-                content=s.get( "content", "" ),
+                index=s.index,
+                chunk_id=s.chunk_id,
+                source=s.source,
+                hierarchy=s.hierarchy,
+                content=s.content,
             ) for s in prompt_result.sources_used
         ]
 

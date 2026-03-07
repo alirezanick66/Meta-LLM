@@ -63,11 +63,8 @@ class GeminiClient:
         if not response.candidates:
             block_reason = getattr( response, "prompt_feedback", None )
             reason_str = block_reason.block_reason.name if block_reason else "UNKNOWN"
-            return ProviderLLMResponse.create_error(
-                f"ورودی یا پاسخ مسدود شد. دلیل: {reason_str}",
-                self.model_name,
-                FinishReason.SAFETY,
-            )
+            return ProviderLLMResponse.create_error( f"ورودی یا پاسخ مسدود شد. دلیل: {reason_str}", self.model_name,
+                                                     FinishReason.SAFETY )
 
         candidate = response.candidates[ 0 ]
 
