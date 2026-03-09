@@ -28,9 +28,7 @@ class RerankerService:
         try:
             log_message( LG.Retrieval, f"⏳ بارگذاری Reranker: {self.model_path}...", LogLevel.INFO )
 
-            if self.device == "cpu":
-                torch.set_num_threads( settings.EMBEDDING_CPU_THREADS )
-
+            # ‫نیازی به set_num_threads نیست — EmbeddingService قبلاً انجام داده
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_path,
                 trust_remote_code=True,

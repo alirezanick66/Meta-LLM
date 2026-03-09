@@ -62,7 +62,7 @@ class Settings( BaseSettings ):
     RRF_TOP_K: int = 20          # ‫تعداد نتایج بعد از RRF قبل از reranker
     BM25_CACHE_DIR: str = "backend/data/storage/bm25_cache"
     # ==================== FastAPI ====================
-    API_HOST: str = "0.0.0.0"
+    API_HOST: str = "127.0.0.1"
     API_PORT: int = 8000
     API_RELOAD: bool = False
 
