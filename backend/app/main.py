@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.app.api.dependencies import ( get_qdrant_manager, get_embedding_service, get_bm25_indexer, get_llm_orchestrator,
-                                           get_hybrid_retriever, get_tokenizer_service )
+                                           get_hybrid_retriever, get_tokenizer_service, get_reranker_service )
 from backend.app.core.config import settings
 from backend.app.core.database import check_db_connection
 from backend.app.utils.logging_config import log_message, LG, LogLevel
@@ -46,6 +46,7 @@ async def lifespan( app: FastAPI ):
     try:
         get_tokenizer_service()
         get_embedding_service()
+        get_reranker_service()
         get_bm25_indexer()
         get_llm_orchestrator()
         get_hybrid_retriever()
@@ -57,6 +58,7 @@ async def lifespan( app: FastAPI ):
 
     # نمایش تنظیمات
     log_message( LG.API, f"🤖 Embedding Model: {settings.EMBEDDING_MODEL}", LogLevel.INFO )
+    log_message( LG.API, f"🔄 Reranker Model: {settings.RERANKER_MODEL}", LogLevel.INFO )
     log_message( LG.API, f"💻 Device: {settings.EMBEDDING_DEVICE}", LogLevel.INFO )
     log_message( LG.API, f"🚀 LLM Primary: {settings.LLM_PRIMARY} ({settings.GROQ_MODEL})", LogLevel.INFO )
     log_message( LG.API, f"🔄 LLM Fallback: {settings.LLM_FALLBACK} ({settings.GEMINI_MODEL})", LogLevel.INFO )

@@ -47,6 +47,7 @@ class Settings( BaseSettings ):
     EMBEDDING_BATCH_SIZE: int = 32
     EMBEDDING_MODEL_TOKEN: str = ""
     EMBEDDING_MODEL_PATH: str = ""
+    RERANKER_MODEL_PATH: str = ""          # ‫مسیر local مدل reranker
     EMBEDDING_VECTOR_DIM: int = 768
     EMBEDDING_CPU_THREADS: int = 16          #تعداد ترد های CPU برای پردازش embedding
 
@@ -57,12 +58,13 @@ class Settings( BaseSettings ):
     # ==================== Retrieval ====================
     BM25_TOP_K: int = 20
     VECTOR_TOP_K: int = 20
-    RERANKER_TOP_K: int = 5
+    RERANKER_TOP_K: int = 5          # ‫تعداد نتایج نهایی بعد از reranker
+    RRF_TOP_K: int = 20          # ‫تعداد نتایج بعد از RRF قبل از reranker
     BM25_CACHE_DIR: str = "backend/data/storage/bm25_cache"
     # ==================== FastAPI ====================
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
-    API_RELOAD: bool = True
+    API_RELOAD: bool = False
 
     # ====================LLM Settings====================
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
@@ -74,6 +76,16 @@ class Settings( BaseSettings ):
     TEMPERATURE: float = 0.3          #میزان خلاقیت پاسخ‌ها از 0 تا 2
     MAX_TOKENS: int = 2048          # ‫حداکثر توکن پاسخ LLM
     LLM_TIMEOUT: int = 30
+
+    #==================== Intent Detection ====================
+    DOMAIN_TOPIC: str = "انقلاب اسلامی ایران"
+    DOMAIN_DESCRIPTION: str = ( "سوالات مرتبط با تاریخ، وقایع، شخصیت‌ها و "
+                                "مفاهیم انقلاب اسلامی ایران" )
+    OUT_OF_SCOPE_MESSAGE: str = ( "متأسفانه این سوال در حوزه تخصصی من نیست. "
+                                  "من فقط می‌توانم سوالات مرتبط با "
+                                  "انقلاب اسلامی ایران را پاسخ دهم." )
+    CONVERSATIONAL_MESSAGE: str = ( "سلام! چطور می‌تونم کمکتون کنم؟ "
+                                    "هر سوالی در مورد انقلاب اسلامی ایران دارید بپرسید." )
 
     #===================== Prompt Settings ====================
     MAX_CONTEXT_TOKENS: int = 3000          # ‫حداکثر توکن context در پرامپت

@@ -156,9 +156,12 @@ const Message = ({
 						</span>
 					)}
 				</div>
-				{!isUser && message.sources?.length > 0 && !isTyping && (
-					<SourceCards sources={message.sources} /> // ← اضافه کن
-				)}
+				{!isUser &&
+					message.sources?.length > 0 &&
+					!isTyping &&
+					message.metadata?.intent === "rag" && (
+						<SourceCards sources={message.sources} />
+					)}
 				{!isTyping && (
 					<div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
 						<MessageActions

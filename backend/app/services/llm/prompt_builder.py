@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Tuple
-import re
+from backend.app.schemas.base_schemas import QueryIntent
 from backend.app.schemas.llm_schemas import PromptResult, SourceInfo
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 from backend.app.core.config import settings
@@ -28,17 +28,6 @@ class PromptBuilder:
 
     SYSTEM_TEMPLATE = "{question}"
 
-    SYS_PATTERN_REGEX = re.compile(
-        r"\W*"
-        r"(?:سلام|علیک)?\s*"
-        r"(?:تو (?:کی|چی) هستی|اسم[ ت] (?:چیه|چیست)|نام[ ت] (?:چیه|چیست)"
-        r"|خودت (?:رو )?معرفی کن"
-        r"|چه (?:کاری|کمکی) (?:میشه|می‌تونی)"
-        r"|چیکار (?:میشه|می‌کنی)"
-        r"|(?:چه )?قابلیت‌?هایی داری"
-        r"|(?:چه )?توانایی‌?هایی داری)"
-        r"\W*", re.IGNORECASE )
-
     def __init__(
         self,
         tokenizer_service: TokenizerService,
@@ -50,8 +39,7 @@ class PromptBuilder:
         self.max_context_tokens = settings.MAX_CONTEXT_TOKENS
 
         # ‫محاسبه یکبار در __init__ — هر سه مقدار ثابت هستن
-        template_tokens = self.tokenizer.count_tokens( self.RAG_TEMPLATE.format( context="", question="" ) )
-        self.template_overhead = template_tokens
+        self.template_overhead = self.tokenizer.count_tokens( self.RAG_TEMPLATE.format( context="", question="" ) )
         self.system_tokens = self.tokenizer.count_tokens( self.system_prompt )
 
         log_message( LG.LLM, "PromptBuilder ساخته شد", LogLevel.INFO )
@@ -59,41 +47,47 @@ class PromptBuilder:
     def count_tokens( self, text: str ) -> int:
         return self.tokenizer.count_tokens( text )
 
-    def is_system_question( self, query: str ) -> bool:
-        """‫بررسی با fullmatch — جلوگیری از false positive در سوالات ترکیبی"""
-        return bool( self.SYS_PATTERN_REGEX.fullmatch( query.strip() ) )
-
-    def build_prompt( self, query: str, chunks: List[ Dict[ str, Any ] ], include_metadata: bool = True ) -> PromptResult:
+    def build_prompt( self,
+                      query: str,
+                      chunks: List[ Dict[ str, Any ] ],
+                      intent: QueryIntent,
+                      include_metadata: bool = True ) -> PromptResult:
         """
         ‫ساخت پرامپت نهایی برای LLM
 
         Args:
             query: سوال کاربر
             chunks: ‫لیست chunks بازیابی شده
+            intent: ‫نوع intent از IntentDetector
             include_metadata: ‫آیا hierarchy در پرامپت نمایش داده شود
 
         Returns:
             PromptResult: ‫شامل system_prompt، user_prompt، sources و آمار توکن
         """
         try:
-            is_sys = self.is_system_question( query )
-
-            if is_sys:
-                log_message( LG.LLM, "پرامپت سیستمی هستش.", LogLevel.INFO )
-                user_prompt = self.SYSTEM_TEMPLATE.format( question=query )
-                sources: List[ SourceInfo ] = []
+            # ‫برای غیر RAG — پرامپت مستقیم بدون context
+            if intent != QueryIntent.RAG:
+                user_prompt = query
                 tokens = self.system_tokens + self.count_tokens( user_prompt )
-            else:
-                user_prompt, sources, tokens = self._build_rag_prompt( query, chunks, include_metadata )
+                log_message( LG.LLM, f"📝 پرامپت مستقیم ({intent}): {tokens} توکن", LogLevel.INFO )
+                return PromptResult(
+                    system_prompt=self.system_prompt,
+                    user_prompt=user_prompt,
+                    sources_used=[],
+                    total_tokens=tokens,
+                    intent=intent,
+                )
+                # ‫برای RAG — پرامپت با context
+            user_prompt, sources, tokens = self._build_rag_prompt( query, chunks, include_metadata )
 
-            log_message( LG.LLM, f"پرامپت ساخته شد: {tokens} توکن, {len(sources)} منابع.", LogLevel.INFO )
+            log_message( LG.LLM, f"📝 پرامپت RAG ساخته شد: {tokens} توکن, {len(sources)} منبع", LogLevel.INFO )
 
             return PromptResult(
                 system_prompt=self.system_prompt,
                 user_prompt=user_prompt,
                 sources_used=sources,
                 total_tokens=tokens,
-                is_system_question=is_sys,
+                intent=intent,
             )
         except Exception as e:
             log_message( LG.LLM, f"خطا در ساخت پرامپت: {e}", LogLevel.ERROR )
@@ -130,8 +124,7 @@ class PromptBuilder:
             # ‫‫include_sources کنترل نمایش hierarchy، include_metadata کنترل فعال‌سازی آن از بیرون
             header = ( f"[منبع {idx} - {hierarchy}]\n" if ( self.include_sources and include_metadata ) else f"[مستند {idx}]\n" )
 
-            header_tokens = self.tokenizer.count_tokens( header )
-            chunk_tokens = self.tokenizer.count_tokens( content ) + header_tokens
+            chunk_tokens = self.tokenizer.count_tokens( content + header )
 
             if current_tokens + chunk_tokens > available_limit:
                 log_message( LG.LLM, f"Context truncated at chunk {idx - 1}", LogLevel.WARNING )

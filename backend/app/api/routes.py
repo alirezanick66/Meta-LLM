@@ -13,7 +13,7 @@ from backend.app.db.postgres import PostgresManager
 from backend.app.api.dependencies import ( get_embedding_service, get_hybrid_retriever, get_llm_orchestrator, get_qdrant_indexer,
                                            get_qdrant_manager, get_bm25_indexer, get_tokenizer_service )
 from backend.app.schemas.api_schemas import SystemStats, UsageInfo
-from backend.app.schemas.base_schemas import LLMProvider
+from backend.app.schemas.base_schemas import LLMProvider, QueryIntent
 from backend.app.schemas.chat_schemas import ChatMetadata, ChatRequest, ChatResponse, Source
 from backend.app.services.document.chunker import MarkdownChunker
 from backend.app.services.retrieval.hybrid_retriever import HybridRetriever
@@ -43,11 +43,13 @@ router = APIRouter( prefix="/api", tags=[ "API" ] )
 
 
 # ==================== Chat Endpoint ====================
-@router.post( "/chat",
-              response_model=ChatResponse,
-              status_code=status.HTTP_200_OK,
-              summary="ارسال سوال و دریافت پاسخ",
-              description="چت با سیستم" )
+@router.post(
+    "/chat",
+    response_model=ChatResponse,
+    status_code=status.HTTP_200_OK,
+    summary="ارسال سوال و دریافت پاسخ",
+    description="چت با سیستم",
+)
 async def chat(
     request: ChatRequest,
     db: Session = Depends( get_db ),
@@ -60,8 +62,56 @@ async def chat(
     try:
         log_message( LG.API, f"📩 درخواست جدید: '{request.query[:50]}...'", LogLevel.INFO )
 
-        # ==================== مرحله 1: Retrieval ====================
-        log_message( LG.API, "🔍 مرحله 1: Retrieval...", LogLevel.DEBUG )
+        # ==================== مرحله ۱: Intent Detection ====================
+        # ‫IntentDetector داخل orchestrator صدا زده میشه
+        # ‫ولی برای تصمیم‌گیری routing در routes.py نیاز به intent داریم
+        # ‫پس IntentDetector رو مستقیم صدا میزنیم
+        from backend.app.api.dependencies import get_intent_detector
+        intent_detector = get_intent_detector()
+        intent = await run_in_threadpool( intent_detector.detect, request.query )
+
+        log_message( LG.API, f"🎯 Intent: {intent}", LogLevel.INFO )
+        # ==================== مرحله ۲: Routing ====================
+
+        # ‫OUT_OF_SCOPE — پیام ثابت، بدون هیچ call اضافه
+        if intent == QueryIntent.OUT_OF_SCOPE:
+            log_message( LG.API, "🚫 سوال خارج از حوزه — رد شد", LogLevel.INFO )
+            return ChatResponse(
+                success=True,
+                answer=settings.OUT_OF_SCOPE_MESSAGE,
+                sources=[],
+                metadata=ChatMetadata(
+                    provider=LLMProvider.GROQ,
+                    model=settings.GROQ_MODEL,
+                    usage=UsageInfo( prompt_tokens=0, completion_tokens=0 ),
+                    intent=intent,
+                    retrieval_count=0,
+                    response_time=round( time.time() - start_time, 2 ),
+                ),
+                error=None,
+                timestamp=datetime.fromtimestamp( time.time() ),
+            )
+
+        # ‫CONVERSATIONAL — پیام ثابت، بدون retrieval
+        if intent == QueryIntent.CONVERSATIONAL:
+            log_message( LG.API, "💬 سوال احوال‌پرسی — پیام ثابت", LogLevel.INFO )
+            return ChatResponse(
+                success=True,
+                answer=settings.CONVERSATIONAL_MESSAGE,
+                sources=[],
+                metadata=ChatMetadata(
+                    provider=LLMProvider.GROQ,
+                    model=settings.GROQ_MODEL,
+                    usage=UsageInfo( prompt_tokens=0, completion_tokens=0 ),
+                    intent=intent,
+                    retrieval_count=0,
+                    response_time=round( time.time() - start_time, 2 ),
+                ),
+                error=None,
+                timestamp=datetime.fromtimestamp( time.time() ),
+            )
+        # ==================== مرحله 3: Retrieval ====================
+        log_message( LG.API, "🔍 مرحله 3: Retrieval...", LogLevel.DEBUG )
         chunks = await run_in_threadpool( retriever.retrieve, query=request.query, final_top_k=settings.RERANKER_TOP_K )
 
         if not chunks:
@@ -75,7 +125,7 @@ async def chat(
 
         log_message( LG.API, f"✅ {len(chunks)} chunk بازیابی شد", LogLevel.DEBUG )
 
-        # ==================== مرحله 2: دریافت Content (Bulk Query) ====================
+        # ==================== مرحله 4: دریافت Content (Bulk Query) ====================
         pg_manager = PostgresManager( db )
         chunk_ids = [ chunk[ 'chunk_id' ] for chunk in chunks ]
         contents_map = await run_in_threadpool( pg_manager.get_chunks_content_bulk, chunk_ids )
@@ -84,15 +134,17 @@ async def chat(
         for chunk in chunks:
             chunk[ 'content' ] = contents_map.get( chunk[ 'chunk_id' ], "" )
 
-        # ==================== مرحله 3: LLM Generation ====================
-        log_message( LG.API, "🤖 مرحله 3: تولید پاسخ با LLM...", LogLevel.DEBUG )
-        llm_response = await run_in_threadpool( orchestrator.generate_answer,
-                                                query=request.query,
-                                                chunks=chunks,
-                                                temperature=request.temperature,
-                                                include_metadata=True )
+        # ==================== مرحله 5: LLM Generation ====================
+        log_message( LG.API, "🤖 مرحله 5: تولید پاسخ با LLM...", LogLevel.DEBUG )
+        llm_response = await run_in_threadpool(
+            orchestrator.generate_answer,
+            query=request.query,
+            chunks=chunks,
+            temperature=request.temperature,
+            include_metadata=True,
+        )
 
-        # ==================== مرحله 4: ساخت Response ====================
+        # ==================== مرحله 6: ساخت Response ====================
         response_time = time.time() - start_time
 
         if not llm_response.success:
@@ -121,19 +173,21 @@ async def chat(
                 prompt_tokens=llm_response.usage.prompt_tokens,
                 completion_tokens=llm_response.usage.completion_tokens,
             ),
-            is_system_question=llm_response.is_system_question,
+            intent=llm_response.intent,
             retrieval_count=len( chunks ),
             response_time=round( response_time, 2 ),
         )
 
         log_message( LG.API, f"✅ پاسخ آماده شد - زمان: {response_time:.2f}s", LogLevel.INFO )
 
-        return ChatResponse( success=True,
-                             answer=llm_response.answer,
-                             sources=sources,
-                             metadata=metadata,
-                             error=None,
-                             timestamp=datetime.fromtimestamp( time.time() ) )
+        return ChatResponse(
+            success=True,
+            answer=llm_response.answer,
+            sources=sources,
+            metadata=metadata,
+            error=None,
+            timestamp=datetime.fromtimestamp( time.time() ),
+        )
 
     except Exception as e:
         log_message( LG.API, f"❌ خطای غیرمنتظره در chat endpoint: {str(e)}", LogLevel.ERROR )

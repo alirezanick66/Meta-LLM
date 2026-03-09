@@ -6,7 +6,9 @@
 from functools import lru_cache
 
 from backend.app.services.retrieval.hybrid_retriever import HybridRetriever
+from backend.app.services.retrieval.reranker_service import RerankerService
 from backend.app.services.llm.llm_orchestrator import create_llm_orchestrator, LLMOrchestrator
+from backend.app.services.llm.intent_detector import IntentDetector, create_intent_detector
 from backend.app.services.embedding.embedding_service import EmbeddingService
 from backend.app.services.embedding.tokenizer_service import TokenizerService
 from backend.app.services.retrieval.vector_retriever import VectorRetriever
@@ -55,6 +57,21 @@ def get_qdrant_indexer() -> QdrantIndexer:
 
 
 @lru_cache( maxsize=1 )
+def get_intent_detector() -> IntentDetector:
+    """‫Singleton instance از IntentDetector"""
+    log_message( LG.API, "🔧 ساخت IntentDetector instance (Singleton)", LogLevel.INFO )
+    return create_intent_detector()
+
+
+# ‫این singleton اضافه میشه (قبل از get_hybrid_retriever):
+@lru_cache( maxsize=1 )
+def get_reranker_service() -> RerankerService:
+    """‫Singleton instance از RerankerService"""
+    log_message( LG.API, "🔧 ساخت RerankerService instance (Singleton)", LogLevel.INFO )
+    return RerankerService()
+
+
+@lru_cache( maxsize=1 )
 def get_hybrid_retriever() -> HybridRetriever:
     """ ‫‫ Singleton instance از HybridRetriever"""
     log_message( LG.API, "🔧 ساخت HybridRetriever instance (Singleton)", LogLevel.INFO )
@@ -66,8 +83,10 @@ def get_hybrid_retriever() -> HybridRetriever:
             embedding_service=get_embedding_service(),
             top_k=settings.VECTOR_TOP_K,
         ),
+        reranker_service=get_reranker_service(),
         bm25_top_k=settings.BM25_TOP_K,
         vector_top_k=settings.VECTOR_TOP_K,
+        rrf_top_k=settings.RRF_TOP_K,
         final_top_k=settings.RERANKER_TOP_K,
     )
 
@@ -89,6 +108,8 @@ def clear_singletons() -> None:
     get_qdrant_manager.cache_clear()
     get_bm25_indexer.cache_clear()
     get_qdrant_indexer.cache_clear()
+    get_intent_detector.cache_clear()
     get_hybrid_retriever.cache_clear()
+    get_reranker_service.cache_clear()
     get_llm_orchestrator.cache_clear()
     log_message( LG.API, "🧹 همه Singleton cache ها پاک شدن", LogLevel.INFO )

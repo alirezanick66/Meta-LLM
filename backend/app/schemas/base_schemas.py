@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, StrEnum
 
 
 # ==================== Enums ====================
@@ -19,3 +19,10 @@ class FinishReason( str, Enum ):
     MAX_TOKENS = "MAX_TOKENS"
     INVALID_STRUCTURE = "INVALID_STRUCTURE"
     UNKNOWN = "UNKNOWN"
+
+
+class QueryIntent( StrEnum ):
+    """‫نوع intent تشخیص داده‌شده برای هر query"""
+    RAG = "rag"          # ‫جستجو در اسناد
+    OUT_OF_SCOPE = "out_of_scope"          # ‫خارج از حوزه — رد کن
+    CONVERSATIONAL = "conversational"          # ‫احوال‌پرسی — پیام ثابت

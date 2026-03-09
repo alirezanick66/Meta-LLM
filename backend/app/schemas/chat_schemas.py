@@ -3,7 +3,7 @@ from typing import Optional
 from datetime import datetime
 
 from backend.app.schemas.api_schemas import UsageInfo
-from backend.app.schemas.base_schemas import LLMProvider
+from backend.app.schemas.base_schemas import LLMProvider, QueryIntent
 
 
 # ==================== Request  ====================
@@ -42,7 +42,7 @@ class ChatMetadata( BaseModel ):
     provider: LLMProvider = Field(..., description="ارائه‌دهنده LLM" )
     model: str = Field(..., description="نام مدل استفاده شده" )
     usage: UsageInfo = Field(..., description="اطلاعات مصرف" )
-    is_system_question: bool = Field( False, description="آیا سوال سیستمی بود؟" )
+    intent: QueryIntent = Field( QueryIntent.RAG, description="نوع intent تشخیص داده‌شده" )
     retrieval_count: int = Field( 0, description="تعداد chunks بازیابی شده" )
     response_time: float = Field( 0.0, description="زمان پاسخ (ثانیه)" )
 

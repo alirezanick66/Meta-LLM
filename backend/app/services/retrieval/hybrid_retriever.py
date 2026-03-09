@@ -3,6 +3,7 @@ from collections import defaultdict
 from backend.app.schemas.retrieval_schemas import ResultKeys, RetrievalMethod, RRFKeys, RRFStats
 from backend.app.services.retrieval.bm25_indexer import BM25Indexer
 from backend.app.services.retrieval.vector_retriever import VectorRetriever
+from backend.app.services.retrieval.reranker_service import RerankerService
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -10,22 +11,19 @@ from concurrent.futures import ThreadPoolExecutor
 
 class HybridRetriever:
     """
-   ‫ ترکیب BM25 (keyword) و Vector (semantic) retrieval با Reciprocal Rank Fusion (RRF)
-    
-    RRF Formula (استاندارد):
-    score(doc) = Σ (1 / (k + rank_i))
-    
-   ‫ که در آن:
-    - ‫k: ثابت (معمولاً 60)
-    - ‫rank_i: رتبه document در هر retriever
+   ‫ ترکیب BM25 + Vector با RRF و Reranking
+    ‫جریان:
+    BM25(top_k) + Vector(top_k) → RRF(rrf_top_k) → Reranker → final_top_k
     """
 
     def __init__(
         self,
         bm25_indexer: BM25Indexer,
         vector_retriever: VectorRetriever,
+        reranker_service: RerankerService,
         bm25_top_k: int = 20,
         vector_top_k: int = 20,
+        rrf_top_k: int = 20,
         final_top_k: int = 20,
         rrf_k: int = 60,
     ):
@@ -35,62 +33,45 @@ class HybridRetriever:
             ‫vector_retriever:‫ instance از VectorRetriever
             ‫bm25_top_k: ‫تعداد نتایج BM25
             ‫vector_top_k: ‫تعداد نتایج Vector
-            ‫final_top_k: ‫تعداد نتایج نهایی بعد از RRF
+            ‫rrf_top_k: ‫تعداد نتایج بعد از RRF
+            ‫final_top_k: ‫تعداد نتایج نهایی بعد از Reranking
             ‫rrf_k: ‫ثابت RRF (معمولاً 60)
         """
         self.bm25_indexer = bm25_indexer
         self.vector_retriever = vector_retriever
+        self.reranker_service = reranker_service
         self.bm25_top_k = bm25_top_k
         self.vector_top_k = vector_top_k
+        self.rrf_top_k = rrf_top_k
         self.final_top_k = final_top_k
         self.rrf_k = rrf_k
 
         log_message( LG.Retrieval, "HybridRetriever آماده شد", LogLevel.INFO )
         log_message( LG.Retrieval, f"  - BM25 Top-K: {bm25_top_k}, Vector Top-K: {vector_top_k}, - RRF k={rrf_k}", LogLevel.DEBUG )
 
-    def retrieve( self, query: str, final_top_k: Optional[ int ] = None ) -> List[ Dict[ str, Any ] ]:
-        """
-       ‫ جستجوی Hybrid با RRF
-        
-        Args:
-            query: متن جستجوی کاربر
-            final_top_k: تعداد نتایج نهایی (اختیاری)
-            
-        Returns:
-           ‫ لیست نتایج merged و re-ranked با فرمت:
-            [
-                {
-                    'chunk_id': str,
-                    'rrf_score': float,
-                    'bm25_score': float or None,
-                    'vector_score': float or None,
-                    'bm25_rank': int or None,
-                    'vector_rank': int or None,
-                    'retrieval_methods': list,
-                    'metadata': dict
-                },
-                ...
-            ]
-        """
+    def retrieve( self, query: str, final_top_k: int | None = None ) -> List[ Dict[ str, Any ] ]:
+        """‫جستجوی Hybrid: BM25 + Vector → RRF → Reranker"""
         try:
             if not query or not query.strip():
                 log_message( LG.Retrieval, "Query خالی است", LogLevel.WARNING )
                 return []
 
-            k = final_top_k if final_top_k is not None else self.final_top_k
+            top_k = final_top_k if final_top_k is not None else self.final_top_k
 
             log_message( LG.Retrieval, f"🔍 Hybrid Retrieval: '{query[:50]}...'", LogLevel.INFO )
 
+            # ‫مرحله ۱: BM25 + Vector به صورت موازی
             bm25_results, vector_results = self._retrieve_parallel( query )
 
-            # Reciprocal Rank Fusion
-            log_message( LG.Retrieval, "🔀 مرحله 3: Reciprocal Rank Fusion...", LogLevel.INFO )
-            merged_results = self._apply_rrf( bm25_results, vector_results )
+            # ‫مرحله ۲: RRF — نتایج بیشتر تحویل reranker بده
+            log_message( LG.Retrieval, "🔀 مرحله ۲: Reciprocal Rank Fusion...", LogLevel.INFO )
+            rrf_results = self._apply_rrf( bm25_results, vector_results )[ :self.rrf_top_k ]
 
-            # ‫انتخاب Top-K نهایی
-            final_results = merged_results[ :k ]
+            # ‫مرحله ۳: Reranker — انتخاب نهایی
+            log_message( LG.Retrieval, f"🎯 مرحله ۳: Reranking {len(rrf_results)} chunk...", LogLevel.INFO )
+            final_results = self.reranker_service.rerank( query, rrf_results, top_k )
+
             log_message( LG.Retrieval, f"✅ Hybrid Retrieval تکمیل شد - {len(final_results)} نتیجه نهایی", LogLevel.INFO )
-
             return final_results
 
         except Exception as e:

@@ -1,7 +1,7 @@
 from typing import Optional, List
 from dataclasses import dataclass, field
 
-from backend.app.schemas.base_schemas import FinishReason, LLMProvider
+from backend.app.schemas.base_schemas import FinishReason, LLMProvider, QueryIntent
 # ==================== Layer 1: Prompt ====================
 
 
@@ -30,7 +30,7 @@ class PromptResult:
     user_prompt: str
     sources_used: List[ SourceInfo ]
     total_tokens: int
-    is_system_question: bool
+    intent: QueryIntent
 
 
 # ==================== Layer 2: Provider Raw Response ====================
@@ -77,7 +77,7 @@ class LLMResponse:
     usage: LLMUsage = field( default_factory=LLMUsage )
     sources: List[ SourceInfo ] = field( default_factory=list )
     prompt_tokens: int = 0
-    is_system_question: bool = False
+    intent: QueryIntent = QueryIntent.RAG
     error: Optional[ str ] = None
     finish_reason: Optional[ FinishReason ] = None
 
@@ -96,7 +96,7 @@ class LLMResponse:
                 provider=provider_name,
                 model=response.model,
                 prompt_tokens=prompt_result.total_tokens,
-                is_system_question=prompt_result.is_system_question,
+                intent=prompt_result.intent,
             )
 
         sources = [
@@ -117,6 +117,6 @@ class LLMResponse:
             usage=response.usage,
             sources=sources,
             prompt_tokens=prompt_result.total_tokens,
-            is_system_question=prompt_result.is_system_question,
+            intent=prompt_result.intent,
             finish_reason=response.finish_reason,
         )
