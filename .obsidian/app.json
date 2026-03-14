@@ -1,0 +1,18 @@
+{
+  "rightToLeft": true,
+  "strictLineBreaks": true,
+  "showIndentGuide": false,
+  "spellcheck": false,
+  "openBehavior": "",
+  "showInlineTitle": false,
+  "propertiesInDocument": "visible",
+  "foldHeading": true,
+  "foldIndent": true,
+  "defaultViewMode": "source",
+  "readableLineLength": true,
+  "tabSize": 4,
+  "vimMode": false,
+  "showUnsupportedFiles": false,
+  "trashOption": "none",
+  "userIgnoreFilters": null
+}

@@ -1,0 +1,17 @@
+.cm-line {
+    direction: rtl;
+    text-align: right;
+}
+
+/* ==================== CODE BLOCKS ==================== */
+.cm-line.HyperMD-codeblock {
+    direction: ltr;
+    text-align: left;
+    unicode-bidi: isolate;
+}
+.mermaid,
+.mermaid svg {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}

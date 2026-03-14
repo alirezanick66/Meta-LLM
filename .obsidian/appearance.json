@@ -1,0 +1,16 @@
+{
+  "baseFontSizeAction": false,
+  "nativeMenus": false,
+  "textFontFamily": "Mikhak",
+  "monospaceFontFamily": "Mikhak",
+  "interfaceFontFamily": "",
+  "baseFontSize": 18,
+  "showViewHeader": false,
+  "showRibbon": true,
+  "enabledCssSnippets": [
+    "force-rtl"
+  ],
+  "theme": "system",
+  "accentColor": "#5cd6f5",
+  "cssTheme": "Things"
+}
