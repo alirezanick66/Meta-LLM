@@ -1,44 +1,57 @@
-## 🛠️ راه‌اندازی محیط توسعه
+# 🛠️ DEVELOPMENT
 
-### **نصب و راه‌اندازی:**
+---
 
-#### **1. Backend:**
+## پیش‌نیازها
+
+- Python 3.10+
+- Node.js 18+
+- Docker & Docker Compose
+
+---
+
+## 🚀 نصب و راه‌اندازی
+
+### 1. Backend
 
 ```bash
-# نصب Dependencies
-pip install -r requirements.txt
+# نصب dependencies
+pip install -r backend/requirements.txt
 
-# راه‌اندازی Docker
+# راه‌اندازی سرویس‌ها (PostgreSQL, Qdrant, Redis)
 docker-compose up -d
 
 # بررسی وضعیت
 docker-compose ps
 
-# اجرای Migrations
+# اجرای migrations
 alembic upgrade head
 
-# تست Indexing
+# تست indexing
 python scripts/test_full_indexing.py
 
 # اجرای API
 uvicorn backend.app.main:app --reload
 ```
 
-#### **2. Frontend:**
+### 2. Frontend
 
 ```bash
-# نصب Dependencies
 cd frontend
+
+# نصب dependencies
 npm install
 
-# اجرای Development Server
+# اجرای development server
 npm run dev
 
-# Build برای Production
+# build برای production
 npm run build
 ```
 
-### **تست‌ها:**
+---
+
+## 🧪 تست‌ها
 
 ```bash
 # تست API
@@ -51,10 +64,12 @@ python scripts/test_retrieval.py
 python scripts/test_rag_pipeline.py
 ```
 
-### **مشاهده Logs:**
+---
+
+## 📋 مشاهده Logs
 
 ```bash
-# Logs همه سرویس‌ها
+# همه سرویس‌ها
 docker-compose logs -f
 
 # فقط Qdrant
@@ -63,3 +78,7 @@ docker-compose logs -f qdrant
 # فقط PostgreSQL
 docker-compose logs -f postgres
 ```
+
+---
+
+**نسخه:** 1.4.0 | **آخرین بروزرسانی:** 2026-03-20
