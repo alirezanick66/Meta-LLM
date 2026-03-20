@@ -1,0 +1,11 @@
+{
+  "cssTheme": "Things",
+  "showViewHeader": false,
+  "interfaceFontFamily": "Mikhak",
+  "textFontFamily": "Mikhak",
+  "monospaceFontFamily": "Mikhak",
+  "enabledCssSnippets": [
+    "force-rtl"
+  ],
+  "baseFontSize": 18
+}
