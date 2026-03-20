@@ -1,7 +1,7 @@
 [
-  "table-editor-obsidian",
   "templater-obsidian",
   "obsidian-icon-folder",
   "file-explorer-plus",
-  "remotely-save"
+  "editing-toolbar",
+  "obsidian-excalidraw-plugin"
 ]

@@ -12,7 +12,7 @@
   "readableLineLength": true,
   "tabSize": 4,
   "vimMode": false,
-  "showUnsupportedFiles": false,
+  "showUnsupportedFiles": true,
   "trashOption": "none",
   "userIgnoreFilters": null
 }
