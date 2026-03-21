@@ -48,6 +48,9 @@
 - Parallel execution (ThreadPoolExecutor) — حذف sequential fallback
 - Score thresholds و filtering
 - BGE Reranker integration (آماده)
+- - Content fetch از PostgreSQL بین RRF و Reranker (حل باگ reranker score=0.0001)
+- تقسیم `retrieve` به دو متد `retrieve` و `rerank`
+- `bge-reranker-base` به جای `v2-m3` (بهینه‌سازی CPU)
 
 #### ✅ فاز 6: LLM Integration
 
@@ -59,6 +62,8 @@
 - GroqClient: Groq API — llama-3.3-70b-versatile با `FinishReason` Enum
 - GeminiClient: Gemini API fallback — gemini-2.5-flash با `_parse_finish_reason` ایمن
 - LLMOrchestrator: مدیریت Primary/Fallback با `LLMProvider` Enum
+- - IntentDetector: سه‌لایه (Regex + LLM با CONVERSATIONAL + پیام ثابت بدون LLM call)
+- `generate_answer` با `intent` از بیرون (حذف double detection)
 
 #### ✅ فاز 9: API Layer
 
@@ -134,4 +139,4 @@
 
 ---
 
-**نسخه:** 1.4.0 | **آخرین بروزرسانی:** 2026-03-20
+**نسخه:** 1.4.0 | **آخرین بروزرسانی:** 2026/03/21

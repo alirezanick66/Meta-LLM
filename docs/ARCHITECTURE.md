@@ -19,7 +19,7 @@
 - **Device:** CPU با batch processing (batch_size: 32)
 - **CPU Threads:** 4 (قابل تنظیم)
 - **Tokenizer:** gte-multilingual-base (یکپارچه برای chunking و token counting)
-- **Reranker:** BAAI/bge-reranker-v2-m3
+- **Reranker:** bge-reranker-base
 - **LLM Primary:** Groq API — llama-3.3-70b-versatile
 - **LLM Fallback:** Gemini API — gemini-2.5-flash
 - **Persian Processing:** Custom Normalizer (بدون Hazm، با str.translate برای سرعت)
@@ -53,7 +53,6 @@
     "chunk_index": 5,
     "title": "عنوان اصلی",
     "section": "بخش فرعی",
-    "subsection": "زیربخش",
     "hierarchy": "عنوان > بخش > زیربخش",
     "has_list": true,
     "heading_level": 3,
@@ -89,6 +88,10 @@
 ```
 User Query
     ↓
+Intent Detection (Regex → LLM Classifier)
+    ├── CONVERSATIONAL → پیام ثابت (بدون API call)
+    ├── OUT_OF_SCOPE   → پیام ثابت (بدون API call)
+    └── RAG ↓
 Persian Normalization (Custom Normalizer)
     ↓
 ┌──────────────────────────────┐
@@ -103,14 +106,16 @@ Reciprocal Rank Fusion (RRF)
     ↓
 Merged Top-20 Results
     ↓
-BGE-Reranker-v2-m3
+Content Fetch from PostgreSQL (Bulk Query)
+    ↓
+bge-reranker-base (Top-8 input → Top-5 output)
     ↓
 Final Top-5 Documents
     ↓
 ┌──────────────────────────────┐
 │   Prompt Builder             │
 │  - Token counting (accurate) │
-│  - System Q detection        │
+│  - Intent-based routing      │
 │  - Source metadata + content │
 └──────────────────────────────┘
     ↓
@@ -125,13 +130,15 @@ Final Answer + Sources
 
 ### **Parameters:**
 
-|پارامتر|مقدار|
-|---|---|
-|BM25 retrieval|Top-20|
-|Vector retrieval|Top-20|
-|After RRF|Top-20 merged|
-|Documents sent to LLM|Top-5|
-|Max context tokens|3000|
+|         پارامتر          | مقدار         |
+| :----------------------: | ------------- |
+|      BM25 retrieval      | Top-20        |
+|     Vector retrieval     | Top-20        |
+|        After RRF         | Top-20 merged |
+|  Documents sent to LLM   | Top-5         |
+|    Max context tokens    | 3000          |
+|   RERANKER_INPUT_SIZE    | 8             |
+| RERANKER_SCORE_THRESHOLD | 0.3           |
 
 ### **چرا Hybrid؟**
 
@@ -209,13 +216,15 @@ LLMResponse         ← خروجی نهایی به API        [Layer 3]
 
 ```
 MetaLLM/
-├── corpus/                         ← فایل‌های قانونی (منابع RAG)
-│   ├── ghanoone_kar.md
-│   ├── tamin_ejtemai.md
-│   ├── bikari.md
-│   ├── mozd_1404.md
-│   └── ghanoone_madani.md
-├── docs/                           ← مستندات فنی
+├── .github/                        ← GitHub configuration
+├── docs/                           ← مستندات فنی و منابع
+│   ├── .obsidian/                  ← تنظیمات Obsidian
+│   ├── corpus/                     ← فایل‌های قانونی (منابع RAG)
+│   │   ├── ghanoone_kar.md
+│   │   ├── tamin.md
+│   │   ├── bikari.md
+│   │   ├── mozd_1404.md
+│   │   └── ghanoone_madani.md
 │   ├── README.md
 │   ├── ARCHITECTURE.md
 │   ├── DEVELOPMENT.md
@@ -236,18 +245,24 @@ MetaLLM/
 │   │   ├── utils/
 │   │   └── main.py
 │   ├── data/
-│   │   └── storage/
-│   │       └── bm25_cache/
-│   └── requirements.txt
+│        ├── storage/
+│        │   └── bm25_cache/
+│        └── logs/
+│  
 ├── frontend/
 │   ├── src/
+│   │   ├── assets/
+│   │   │   └── fonts/
 │   │   ├── components/
 │   │   ├── hooks/
 │   │   ├── pages/
 │   │   └── services/
 │   └── package.json
 ├── scripts/
+├── .gitignore
+├── alembic.ini
+├── requirements.txt
 └── docker-compose.yml
 ```
 
-**نسخه:** 1.4.0 | **آخرین بروزرسانی:** 2026-03-20
+**نسخه:** 1.4.0 | **آخرین بروزرسانی:** 2026/03/21

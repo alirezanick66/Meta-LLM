@@ -32,9 +32,14 @@ Persian-language RAG (Retrieval-Augmented Generation) Q&A system for urban plann
 ### Data Flow
 
 ```
-User Query → Persian Normalization → Parallel BM25 + Vector Retrieval (Top-20 each)
-→ Reciprocal Rank Fusion (Top-20) → Final Top-5 → Prompt Builder → LLM Orchestrator
-(Primary: Groq llama-3.3-70b-versatile, Fallback: Gemini gemini-2.0-flash-exp) → Answer + Sources
+User Query → Intent Detection (Regex → LLM) → Persian Normalization
+→ Parallel BM25 + Vector Retrieval (Top-20 each)
+→ Reciprocal Rank Fusion (Top-20)
+→ Content Fetch from PostgreSQL (Bulk Query)
+→ bge-reranker-base (Top-8 input → Top-5 output)
+→ Prompt Builder → LLM Orchestrator
+(Primary: Groq llama-3.3-70b-versatile, Fallback: Gemini gemini-2.5-flash)
+→ Answer + Sources
 ```
 
 ### Key Directories
@@ -47,9 +52,10 @@ User Query → Persian Normalization → Parallel BM25 + Vector Retrieval (Top-2
 - `backend/app/schemas/` – base_schemas, api_schemas, chat_schemas, chunk_schemas, llm_schemas, retrieval_schemas
 - `backend/app/utils/logging_config.py` – Loguru-based logger with Persian text support (bidi + arabic_reshaper)
 - `backend/app/core/config.py` – All settings via `pydantic_settings.BaseSettings`; reads from `.env`
-- `backend/data/documents/` – Source Markdown files; `backend/data/storage/bm25_cache/` – BM25 pickle files
+- `backend/data/storage/bm25_cache/` – BM25 pickle files
 - `scripts/` – Test scripts: `test_api.py`, `test_retrieval.py`, `test_rag_pipline.py`, etc.
 - `frontend/src/components/` – ChatInterface, Message, InputBox, MessageActions, SkeletonMessage, ScrollToBottom, SourceCards, SourceModal
+- `docs/corpus/` – فایل‌های قانونی (منابع RAG)
 
 ## Developer Workflows
 
@@ -76,6 +82,7 @@ python scripts/test_api.py          # 6 API tests (health, stats, chat)
 python scripts/test_retrieval.py    # BM25 + vector retrieval
 python scripts/test_rag_pipline.py  # full pipeline (note: filename has a typo)
 python scripts/test_full_indexing.py  # index a document end-to-end
+python scripts/test_rag_pipeline.py  # full pipeline
 ```
 
 ### Reset All Data
@@ -127,7 +134,9 @@ SHA-256(chunk_id)[:8] converted to int. Payload includes: `chunk_id`, `document_
 
 ### BM25 Storage
 
-BM25 index and chunk_id mapping stored as pickles in `backend/data/storage/bm25_cache/`. Only chunk_ids are kept in memory; content is fetched from PostgreSQL via bulk queries when needed.
+BM25 index and chunk_id mapping stored as pickles in `backend/data/storage/bm25_cache/`.
+Content fetched from PostgreSQL via bulk queries before reranking.
+RERANKER_INPUT_SIZE=8, RERANKER_SCORE_THRESHOLD=0.3
 
 ### Frontend
 
@@ -136,6 +145,6 @@ RTL layout (Persian); Tailwind utility classes; `useTypingEffect` hook for chara
 ## External Dependencies
 
 - **Groq API** (`GROQ_API_KEY`) – primary LLM (llama-3.3-70b-versatile)
-- **Gemini API** (`GEMINI_API_KEY`) – fallback LLM (gemini-2.0-flash-exp)
+- **Gemini API** (`GEMINI_API_KEY`) – fallback LLM (gemini-2.5-flash)
 - **Alibaba-NLP/gte-multilingual-base** – embeddings (768-dim, CPU, batch 32) — یکپارچه برای embedding و token counting
-- **BAAI/bge-reranker-v2-m3** – reranker (ready, not yet active)
+- **BAAI/bge-reranker-base** – reranker
