@@ -22,7 +22,7 @@ class ChatRequest( BaseModel ):
 
     model_config = ConfigDict(
         json_schema_extra={ "example": {
-            "query": "انقلاب اسلامی چه تأثیری بر نظریه‌های غربی گذاشت؟",
+            "query": "حداقل مزد کارگر در سال 1404 چقدر است؟",
             "temperature": 0.3
         } } )
 
@@ -62,12 +62,16 @@ class ChatResponse( BaseModel ):
                 "success":
                 True,
                 "answer":
-                "انقلاب اسلامی تأثیرات عمیقی بر نظریه‌های غربی گذاشت...",
+                "حداقل مزد روزانه کارگر در سال 1404...",
                 "sources": [ {
-                    "index": 1,
-                    "chunk_id": "doc_1_chunk_003",
-                    "source": "enghelab.md",
-                    "hierarchy": "انقلاب اسلامی > تأثیرات"
+                    "index":
+                    1,
+                    "chunk_id":
+                    "doc_1_chunk_003",
+                    "source":
+                    "ghanoone_kar.md",
+                    "hierarchy":
+                    " فصل اول- در اقسام عقود و معاملات> باب اول- در عقود و تعهدات به‌طور کلی >قسمت دوم- در عقود و معاملات و الزامات",
                 } ],
                 "metadata": {
                     "provider": "groq",

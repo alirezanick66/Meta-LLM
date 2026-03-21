@@ -110,10 +110,10 @@ async def chat(
                 error=None,
                 timestamp=datetime.fromtimestamp( time.time() ),
             )
-        # ==================== مرحله 3: Retrieval ====================
+        # ==================== مرحله 3: Retrieval (RRF) ====================
         log_message( LG.API, "🔍 مرحله 3: Retrieval...", LogLevel.DEBUG )
-        chunks = await run_in_threadpool( retriever.retrieve, query=request.query, final_top_k=settings.RERANKER_TOP_K )
-
+        chunks = await run_in_threadpool( retriever.retrieve, request.query )
+        chunks = chunks[ :settings.RERANKER_INPUT_SIZE ]
         if not chunks:
             log_message( LG.API, "⚠️ هیچ chunk ای پیدا نشد", LogLevel.WARNING )
             return ChatResponse( success=False,
@@ -129,10 +129,12 @@ async def chat(
         pg_manager = PostgresManager( db )
         chunk_ids = [ chunk[ 'chunk_id' ] for chunk in chunks ]
         contents_map = await run_in_threadpool( pg_manager.get_chunks_content_bulk, chunk_ids )
-
-        # اتصال محتوا به chunks
         for chunk in chunks:
             chunk[ 'content' ] = contents_map.get( chunk[ 'chunk_id' ], "" )
+
+        # ==================== مرحله 4.5: Reranking ====================
+        chunks = chunks[ :settings.RERANKER_INPUT_SIZE ]
+        chunks = await run_in_threadpool( retriever.rerank, request.query, chunks, settings.RERANKER_TOP_K )
 
         # ==================== مرحله 5: LLM Generation ====================
         log_message( LG.API, "🤖 مرحله 5: تولید پاسخ با LLM...", LogLevel.DEBUG )
@@ -140,6 +142,7 @@ async def chat(
             orchestrator.generate_answer,
             query=request.query,
             chunks=chunks,
+            intent=intent,
             temperature=request.temperature,
             include_metadata=True,
         )

@@ -1,16 +1,19 @@
 """
-تست کامل RAG Pipeline (End-to-End)
-شامل: Retrieval + LLM Generation
+‫تست کامل RAG Pipeline (End-to-End)
+‫شامل: Retrieval + Content Fetch + Reranking + LLM Generation
 """
 
 import sys
 from pathlib import Path
 from typing import List, Dict, Any
 
-# اضافه کردن مسیر پروژه
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
 from backend.app.api.dependencies import get_hybrid_retriever, get_llm_orchestrator
+from backend.app.core.database import SessionLocal
+from backend.app.core.config import settings
+from backend.app.db.postgres import PostgresManager
+from backend.app.schemas.base_schemas import QueryIntent
 from backend.app.services.llm.llm_orchestrator import LLMResponse
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
@@ -21,7 +24,7 @@ TOP_CHUNKS_LOG = 3
 
 
 def _log_chunks_summary( chunks: List[ Dict[ str, Any ] ] ):
-    """لاگ کردن خلاصه chunk های بازیابی شده"""
+    """‫لاگ کردن خلاصه chunk های بازیابی شده"""
     if not chunks:
         log_message( LG.LLM, "⚠️ هیچ chunk ای پیدا نشد", LogLevel.WARNING )
         return
@@ -32,19 +35,17 @@ def _log_chunks_summary( chunks: List[ Dict[ str, Any ] ] ):
     for rank, chunk in enumerate( chunks[ :TOP_CHUNKS_LOG ], start=1 ):
         chunk_id = chunk.get( "chunk_id", "unknown" )
         rrf_score = chunk.get( "rrf_score", 0 )
-        content = chunk.get( "content", "" )[ :CHUNK_PREVIEW_LEN ] + "..."
+        reranker_score = chunk.get( "reranker_score", "N/A" )
+        content_preview = chunk.get( "content", "" )[ :CHUNK_PREVIEW_LEN ] + "..."
 
-        log_message( LG.LLM, f"  #{rank}. [{chunk_id}] (RRF: {rrf_score:.4f})", LogLevel.DEBUG )
-        log_message( LG.LLM, f"      {content}", LogLevel.DEBUG )
+        log_message(
+            LG.LLM, f"  #{rank}. [{chunk_id}] (RRF: {rrf_score:.4f} | Reranker: {reranker_score:.4f})" if isinstance(
+                reranker_score, float ) else f"  #{rank}. [{chunk_id}] (RRF: {rrf_score:.4f})", LogLevel.DEBUG )
+        log_message( LG.LLM, f"      {content_preview}", LogLevel.DEBUG )
 
 
 def _log_result_summary( expected_type: str, response: LLMResponse ):
-    """
-    لاگ کردن خلاصه نتیجه نهایی LLM.
-    فقط به نوع مورد انتظار و پاسخ نهایی نیاز دارد.
-    """
-
-    # 1. چک کردن موفقیت اولیه (Guard Clause)
+    """‫لاگ کردن خلاصه نتیجه نهایی LLM"""
     if not response.success:
         log_message( LG.LLM, f"❌ خطا در تولید پاسخ: {response.error}", LogLevel.ERROR )
         return
@@ -52,30 +53,30 @@ def _log_result_summary( expected_type: str, response: LLMResponse ):
     log_message( LG.LLM, "=" * 70, LogLevel.INFO )
     log_message( LG.LLM, "✅ پاسخ تولید شد!", LogLevel.INFO )
 
-    # 2. اطلاعات فنی (Provider & Usage)
-    usage = response.usage or {}
+    # ‫اطلاعات فنی
+    usage = response.usage
     log_message(
         LG.LLM,
-        f"🤖 {response.provider.upper()} | 📦 {response.model} | "          # type: ignore
-        f"📊 In:{usage.get('prompt_tokens',0)} Out:{usage.get('completion_tokens',0)} | "
+        f"🤖 {response.provider} | 📦 {response.model} | "
+        f"📊 In:{usage.prompt_tokens} Out:{usage.completion_tokens} | "
         f"🔢 Pre-Tokens:{response.prompt_tokens}",
-        LogLevel.INFO )
+        LogLevel.INFO,
+    )
 
-    # 3. بررسی نوع سوال (سیستمی یا RAG)
-    is_sys_q = response.is_system_question
-    correct_type = ( expected_type == "system" and is_sys_q ) or ( expected_type == "rag" and not is_sys_q )
-
+    # ‫بررسی intent
+    detected_intent = response.intent
+    expected_intent = QueryIntent.RAG if expected_type == "rag" else QueryIntent.OUT_OF_SCOPE
+    correct_type = detected_intent == expected_intent
     status_icon = "✅" if correct_type else "⚠️"
-    detected = "System" if is_sys_q else "RAG"
-    log_message( LG.LLM, f"{status_icon} Type Check: Expected={expected_type}, Detected={detected}", LogLevel.INFO )
+    log_message( LG.LLM, f"{status_icon} Intent Check: Expected={expected_type}, Detected={detected_intent}", LogLevel.INFO )
 
-    # 4. منابع (فقط برای RAG)
-    if response.sources and not is_sys_q:
+    # ‫منابع — فقط برای RAG
+    if response.sources and detected_intent == QueryIntent.RAG:
         log_message( LG.LLM, f"📑 Sources Used: {len(response.sources)}", LogLevel.INFO )
         for s in response.sources[ :TOP_CHUNKS_LOG ]:
-            log_message( LG.LLM, f"  • Source {s['index']}: {s['hierarchy'][:60]}...", LogLevel.INFO )
+            log_message( LG.LLM, f"  • Source {s.index}: {s.hierarchy[:60]}", LogLevel.INFO )
 
-    # 5. پاسخ نهایی
+    # ‫پاسخ نهایی
     log_message( LG.LLM, "-" * 70, LogLevel.INFO )
     if response.answer:
         preview = response.answer[ :ANSWER_PREVIEW_LEN ] + ( "..." if len( response.answer ) > ANSWER_PREVIEW_LEN else "" )
@@ -89,8 +90,8 @@ def test_rag_pipeline():
 
     # ==================== Setup ====================
     try:
-        retriever = get_hybrid_retriever( bm25_top_k=20, vector_top_k=20, final_top_k=5 )
-        orchestrator = get_llm_orchestrator( max_context_tokens=3000, use_fallback=True )
+        retriever = get_hybrid_retriever()
+        orchestrator = get_llm_orchestrator()
         log_message( LG.LLM, "✅ کامپوننت‌ها آماده شدند", LogLevel.INFO )
     except Exception as e:
         log_message( LG.LLM, f"❌ خطا در Setup: {e}", LogLevel.ERROR )
@@ -99,20 +100,24 @@ def test_rag_pipeline():
     # ==================== Test Cases ====================
     test_queries = [
         {
-            "query": "انقلاب اسلامی چه تأثیری بر نظریه های غربی گذاشت؟",
+            "query": "حداقل مزد کارگر در سال 1404 چقدر است؟",
             "type": "rag"
         },
         {
-            "query": "نقش امام خمینی در انقلاب چه بود؟",
+            "query": "شرایط دریافت بیمه بیکاری چیست؟",
             "type": "rag"
         },
         {
-            "query": "تو کی هستی؟",
-            "type": "system"
+            "query": "مرخصی زایمان کارگر زن چند روز است؟",
+            "type": "rag"
         },
         {
             "query": "سلام، اسمت چیه؟",
-            "type": "system"
+            "type": "conversational"
+        },
+        {
+            "query": "آب و هوای تهران چطوره؟",
+            "type": "out_of_scope"
         },
     ]
 
@@ -120,17 +125,35 @@ def test_rag_pipeline():
     for i, case in enumerate( test_queries, start=1 ):
         query, expected_type = case[ "query" ], case[ "type" ]
 
-        log_message( LG.LLM, f"\n{'='*70}\n📝 Query #{i}: '{query}' (Type: {expected_type})\n{'='*70}", LogLevel.INFO )
+        log_message( LG.LLM, f"\n{'='*70}\n📝 Query #{i}: '{query}'\n{'='*70}", LogLevel.INFO )
 
         try:
-            # 1. Retrieval
-            chunks = retriever.retrieve( query, final_top_k=5 )
+            # ‫مرحله ۱: RRF
+            chunks = retriever.retrieve( query )
+
+            # ‫مرحله ۲: fetch content از PostgreSQL
+            db = SessionLocal()
+            pg_manager = PostgresManager( db )
+            chunk_ids = [ c[ 'chunk_id' ] for c in chunks ]
+            contents_map = pg_manager.get_chunks_content_bulk( chunk_ids )
+            for c in chunks:
+                c[ 'content' ] = contents_map.get( c[ 'chunk_id' ], "" )
+
+            # ‫مرحله ۳: Rerank
+            chunks = chunks[ :settings.RERANKER_INPUT_SIZE ]
+            chunks = retriever.rerank( query, chunks, final_top_k=settings.RERANKER_TOP_K )
+            db.close()
+
             _log_chunks_summary( chunks )
 
-            # 2. Generation
-            response = orchestrator.generate_answer( query, chunks, temperature=0.3 )
+            # ‫مرحله ۴: LLM Generation
+            response = orchestrator.generate_answer(
+                query=query,
+                chunks=chunks,
+                intent=QueryIntent.RAG if expected_type == "rag" else QueryIntent.OUT_OF_SCOPE,
+                temperature=0.3,
+            )
 
-            # 3. Reporting (تمام لاگ‌های پیچیده به این خط منتقل شد)
             _log_result_summary( expected_type, response )
 
         except Exception as e:

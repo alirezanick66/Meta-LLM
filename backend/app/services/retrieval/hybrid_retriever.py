@@ -50,33 +50,37 @@ class HybridRetriever:
         log_message( LG.Retrieval, f"  - BM25 Top-K: {bm25_top_k}, Vector Top-K: {vector_top_k}, - RRF k={rrf_k}", LogLevel.DEBUG )
 
     def retrieve( self, query: str, final_top_k: int | None = None ) -> List[ Dict[ str, Any ] ]:
-        """‫جستجوی Hybrid: BM25 + Vector → RRF → Reranker"""
+        """‫جستجوی Hybrid: BM25 + Vector → RRF (بدون Rerank)"""
         try:
             if not query or not query.strip():
                 log_message( LG.Retrieval, "Query خالی است", LogLevel.WARNING )
                 return []
 
-            top_k = final_top_k if final_top_k is not None else self.final_top_k
-
             log_message( LG.Retrieval, f"🔍 Hybrid Retrieval: '{query[:50]}...'", LogLevel.INFO )
 
-            # ‫مرحله ۱: BM25 + Vector به صورت موازی
             bm25_results, vector_results = self._retrieve_parallel( query )
 
-            # ‫مرحله ۲: RRF — نتایج بیشتر تحویل reranker بده
             log_message( LG.Retrieval, "🔀 مرحله ۲: Reciprocal Rank Fusion...", LogLevel.INFO )
             rrf_results = self._apply_rrf( bm25_results, vector_results )[ :self.rrf_top_k ]
 
-            # ‫مرحله ۳: Reranker — انتخاب نهایی
-            log_message( LG.Retrieval, f"🎯 مرحله ۳: Reranking {len(rrf_results)} chunk...", LogLevel.INFO )
-            final_results = self.reranker_service.rerank( query, rrf_results, top_k )
-
-            log_message( LG.Retrieval, f"✅ Hybrid Retrieval تکمیل شد - {len(final_results)} نتیجه نهایی", LogLevel.INFO )
-            return final_results
+            log_message( LG.Retrieval, f"✅ RRF تکمیل شد - {len(rrf_results)} نتیجه", LogLevel.INFO )
+            return rrf_results
 
         except Exception as e:
             log_message( LG.Retrieval, f"❌ خطا در hybrid retrieval: {str(e)}", LogLevel.ERROR )
             return []
+
+    def rerank( self, query: str, chunks: List[ Dict[ str, Any ] ], final_top_k: int | None = None ) -> List[ Dict[ str, Any ] ]:
+        """‫Reranking chunks که content شان از PostgreSQL تکمیل شده"""
+        try:
+            top_k = final_top_k if final_top_k is not None else self.final_top_k
+            log_message( LG.Retrieval, f"🎯 Reranking {len(chunks)} chunk...", LogLevel.INFO )
+            final_results = self.reranker_service.rerank( query, chunks, top_k )
+            log_message( LG.Retrieval, f"✅ Hybrid Retrieval تکمیل شد - {len(final_results)} نتیجه نهایی", LogLevel.INFO )
+            return final_results
+        except Exception as e:
+            log_message( LG.Retrieval, f"❌ خطا در reranking: {str(e)}", LogLevel.ERROR )
+            return chunks[ :self.final_top_k ]
 
     def _retrieve_parallel( self, query: str ) -> tuple[ List[ Dict[ str, Any ] ], List[ Dict[ str, Any ] ] ]:
         """

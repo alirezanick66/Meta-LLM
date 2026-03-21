@@ -2,6 +2,7 @@ import torch
 from typing import List, Dict, Any
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from backend.app.core.config import settings
+from backend.app.schemas.retrieval_schemas import ResultKeys
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 
 
@@ -74,14 +75,15 @@ class RerankerService:
 
         try:
             # ‫ساخت جفت‌های (query, content) برای هر chunk
-            pairs = [ [ query, chunk.get( "content", "" ) ] for chunk in chunks ]
+            log_message( LG.Retrieval, f"DEBUG content[0]: '{chunks[0].get(ResultKeys.CONTENT, 'MISSING')[:100]}'", LogLevel.DEBUG )
+            pairs = [ [ query, chunk.get( ResultKeys.CONTENT, "" ) ] for chunk in chunks ]
 
             # ‫tokenize همه جفت‌ها یکجا
             inputs = self.tokenizer(
                 pairs,
                 padding=True,
                 truncation=True,
-                max_length=512,
+                max_length=256,
                 return_tensors="pt",
             )
 
@@ -104,7 +106,7 @@ class RerankerService:
             reranked = sorted( chunks, key=lambda x: x[ "reranker_score" ], reverse=True )
 
             log_message( LG.Retrieval, f"✅ Reranking تکمیل شد: {len(chunks)} → {min(top_k, len(reranked))} chunk", LogLevel.INFO )
-
+            reranked = [ c for c in reranked if c[ "reranker_score" ] >= settings.RERANKER_SCORE_THRESHOLD ]
             return reranked[ :top_k ]
 
         except Exception as e:

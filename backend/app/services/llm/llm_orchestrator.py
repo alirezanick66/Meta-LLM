@@ -44,6 +44,7 @@ class LLMOrchestrator:
         self,
         query: str,
         chunks: List[ Dict ],
+        intent: QueryIntent,
         temperature: Optional[ float ] = None,
         include_metadata: bool = True,
     ) -> LLMResponse:
@@ -55,6 +56,7 @@ class LLMOrchestrator:
             chunks: ‫نتایج retrieval (برای RAG — میتونه خالی باشه)
             temperature: ‫میزان خلاقیت پاسخ
             include_metadata: ‫نمایش hierarchy در پرامپت
+            intent: ‫نوع سوال
 
         Returns:
             LLMResponse با intent مشخص
@@ -63,7 +65,7 @@ class LLMOrchestrator:
         log_message( LG.LLM, f"🤖 Request: {query[:50]}...", LogLevel.INFO )
 
         # ‫مرحله ۱: تشخیص intent
-        intent = self.intent_detector.detect( query )
+        # intent = self.intent_detector.detect( query )
         # ‫مرحله ۲: ساخت پرامپت بر اساس intent
         # ‫برای RAG — chunks پاس داده میشه
         # ‫برای غیر RAG — chunks خالیه (PromptBuilder نادیده میگیره)
