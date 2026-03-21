@@ -10,7 +10,6 @@ class ChunkMetadata( BaseModel ):
     source: str
     chunk_index: int
     section: str | None = None
-    subsection: str | None = None
     hierarchy: str | None = None
     has_list: bool = False
     heading_level: int = 0

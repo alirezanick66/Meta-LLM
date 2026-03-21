@@ -3,5 +3,6 @@
   "spellcheck": false,
   "showUnsupportedFiles": true,
   "trashOption": "none",
-  "showInlineTitle": false
+  "showInlineTitle": false,
+  "showIndentGuide": false
 }

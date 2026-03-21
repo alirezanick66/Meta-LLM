@@ -88,13 +88,13 @@ class MarkdownChunker:
                     sub_chunks = [ content_raw ]
 
                 header_str = self._get_header_string( md_metadata )
-                section = md_metadata.get( "Header 2" )
-                subsection = md_metadata.get( "Header 3" )
+                section = md_metadata.get( "Header 2" ) or md_metadata.get( "Header 3" )
                 hierarchy = header_str
 
                 heading_level = 0
-                if subsection: heading_level = 3
-                elif section: heading_level = 2
+                if md_metadata.get( "Header 4" ): heading_level = 4
+                elif md_metadata.get( "Header 3" ): heading_level = 3
+                elif md_metadata.get( "Header 2" ): heading_level = 2
 
                 # اصلاح حلقه:
                 for sub_text in sub_chunks:
@@ -108,7 +108,6 @@ class MarkdownChunker:
                             "document_id": doc_id,
                             "source": source_file,
                             "section": section,
-                            "subsection": subsection,
                             "hierarchy": hierarchy,
                             "chunk_index": global_chunk_index,
                             "has_list": self._detect_list( sub_text ),
