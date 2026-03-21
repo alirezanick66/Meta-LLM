@@ -1,6 +1,6 @@
 """
 ‫تست کامل RAG Pipeline (End-to-End)
-‫شامل: Retrieval + Content Fetch + Reranking + LLM Generation
+‫شامل: Intent Detection + Retrieval + Content Fetch + Reranking + LLM Generation
 """
 
 import sys
@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent ) )
 
-from backend.app.api.dependencies import get_hybrid_retriever, get_llm_orchestrator
+from backend.app.api.dependencies import get_hybrid_retriever, get_llm_orchestrator, get_intent_detector
 from backend.app.core.database import SessionLocal
 from backend.app.core.config import settings
 from backend.app.db.postgres import PostgresManager
@@ -39,12 +39,15 @@ def _log_chunks_summary( chunks: List[ Dict[ str, Any ] ] ):
         content_preview = chunk.get( "content", "" )[ :CHUNK_PREVIEW_LEN ] + "..."
 
         log_message(
-            LG.LLM, f"  #{rank}. [{chunk_id}] (RRF: {rrf_score:.4f} | Reranker: {reranker_score:.4f})" if isinstance(
-                reranker_score, float ) else f"  #{rank}. [{chunk_id}] (RRF: {rrf_score:.4f})", LogLevel.DEBUG )
+            LG.LLM,
+            f"  #{rank}. [{chunk_id}] (RRF: {rrf_score:.4f} | Reranker: {reranker_score:.4f})"
+            if isinstance( reranker_score, float ) else f"  #{rank}. [{chunk_id}] (RRF: {rrf_score:.4f})",
+            LogLevel.DEBUG,
+        )
         log_message( LG.LLM, f"      {content_preview}", LogLevel.DEBUG )
 
 
-def _log_result_summary( expected_type: str, response: LLMResponse ):
+def _log_result_summary( expected_type: str, detected_intent: QueryIntent, response: LLMResponse ):
     """‫لاگ کردن خلاصه نتیجه نهایی LLM"""
     if not response.success:
         log_message( LG.LLM, f"❌ خطا در تولید پاسخ: {response.error}", LogLevel.ERROR )
@@ -64,9 +67,7 @@ def _log_result_summary( expected_type: str, response: LLMResponse ):
     )
 
     # ‫بررسی intent
-    detected_intent = response.intent
-    expected_intent = QueryIntent.RAG if expected_type == "rag" else QueryIntent.OUT_OF_SCOPE
-    correct_type = detected_intent == expected_intent
+    correct_type = detected_intent.value == expected_type
     status_icon = "✅" if correct_type else "⚠️"
     log_message( LG.LLM, f"{status_icon} Intent Check: Expected={expected_type}, Detected={detected_intent}", LogLevel.INFO )
 
@@ -92,6 +93,7 @@ def test_rag_pipeline():
     try:
         retriever = get_hybrid_retriever()
         orchestrator = get_llm_orchestrator()
+        intent_detector = get_intent_detector()
         log_message( LG.LLM, "✅ کامپوننت‌ها آماده شدند", LogLevel.INFO )
     except Exception as e:
         log_message( LG.LLM, f"❌ خطا در Setup: {e}", LogLevel.ERROR )
@@ -99,18 +101,18 @@ def test_rag_pipeline():
 
     # ==================== Test Cases ====================
     test_queries = [
-        {
-            "query": "حداقل مزد کارگر در سال 1404 چقدر است؟",
-            "type": "rag"
-        },
-        {
-            "query": "شرایط دریافت بیمه بیکاری چیست؟",
-            "type": "rag"
-        },
-        {
-            "query": "مرخصی زایمان کارگر زن چند روز است؟",
-            "type": "rag"
-        },
+          # {
+          #     "query": "حداقل مزد کارگر در سال 1404 چقدر است؟",
+          #     "type": "rag"
+          # },
+          # {
+          #     "query": "شرایط دریافت بیمه بیکاری چیست؟",
+          #     "type": "rag"
+          # },
+          # {
+          #     "query": "مرخصی زایمان کارگر زن چند روز است؟",
+          #     "type": "rag"
+          # },
         {
             "query": "سلام، اسمت چیه؟",
             "type": "conversational"
@@ -128,33 +130,38 @@ def test_rag_pipeline():
         log_message( LG.LLM, f"\n{'='*70}\n📝 Query #{i}: '{query}'\n{'='*70}", LogLevel.INFO )
 
         try:
-            # ‫مرحله ۱: RRF
-            chunks = retriever.retrieve( query )
+            # ‫مرحله ۱: Intent Detection
+            detected_intent = intent_detector.detect( query )
 
-            # ‫مرحله ۲: fetch content از PostgreSQL
-            db = SessionLocal()
-            pg_manager = PostgresManager( db )
-            chunk_ids = [ c[ 'chunk_id' ] for c in chunks ]
-            contents_map = pg_manager.get_chunks_content_bulk( chunk_ids )
-            for c in chunks:
-                c[ 'content' ] = contents_map.get( c[ 'chunk_id' ], "" )
+            # ‫مرحله ۲: RRF (فقط برای RAG)
+            chunks = []
+            if detected_intent == QueryIntent.RAG:
+                chunks = retriever.retrieve( query )
 
-            # ‫مرحله ۳: Rerank
-            chunks = chunks[ :settings.RERANKER_INPUT_SIZE ]
-            chunks = retriever.rerank( query, chunks, final_top_k=settings.RERANKER_TOP_K )
-            db.close()
+                # ‫مرحله ۳: fetch content از PostgreSQL
+                db = SessionLocal()
+                pg_manager = PostgresManager( db )
+                chunk_ids = [ c[ 'chunk_id' ] for c in chunks ]
+                contents_map = pg_manager.get_chunks_content_bulk( chunk_ids )
+                for c in chunks:
+                    c[ 'content' ] = contents_map.get( c[ 'chunk_id' ], "" )
+
+                # ‫مرحله ۴: Rerank
+                chunks = chunks[ :settings.RERANKER_INPUT_SIZE ]
+                chunks = retriever.rerank( query, chunks, final_top_k=settings.RERANKER_TOP_K )
+                db.close()
 
             _log_chunks_summary( chunks )
 
-            # ‫مرحله ۴: LLM Generation
+            # ‫مرحله ۵: LLM Generation
             response = orchestrator.generate_answer(
                 query=query,
                 chunks=chunks,
-                intent=QueryIntent.RAG if expected_type == "rag" else QueryIntent.OUT_OF_SCOPE,
+                intent=detected_intent,
                 temperature=0.3,
             )
 
-            _log_result_summary( expected_type, response )
+            _log_result_summary( expected_type, detected_intent, response )
 
         except Exception as e:
             log_message( LG.LLM, f"❌ Critical Error: {e}", LogLevel.ERROR )

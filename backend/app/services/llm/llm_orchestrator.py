@@ -7,6 +7,7 @@ from backend.app.services.llm.prompt_builder import PromptBuilder, create_prompt
 from backend.app.schemas.llm_schemas import LLMResponse, PromptResult, ProviderLLMResponse
 from backend.app.services.llm.intent_detector import IntentDetector, create_intent_detector
 from backend.app.utils.logging_config import log_message, LG, LogLevel
+from backend.app.core.config import settings
 
 
 class LLMOrchestrator:
@@ -65,7 +66,23 @@ class LLMOrchestrator:
         log_message( LG.LLM, f"🤖 Request: {query[:50]}...", LogLevel.INFO )
 
         # ‫مرحله ۱: تشخیص intent
-        # intent = self.intent_detector.detect( query )
+        if intent == QueryIntent.OUT_OF_SCOPE:
+            return LLMResponse(
+                success=True,
+                answer=settings.OUT_OF_SCOPE_MESSAGE,
+                intent=intent,
+                provider=LLMProvider.GROQ,
+                model=settings.GROQ_MODEL,
+            )
+
+        if intent == QueryIntent.CONVERSATIONAL:
+            return LLMResponse(
+                success=True,
+                answer=settings.CONVERSATIONAL_MESSAGE,
+                intent=intent,
+                provider=LLMProvider.GROQ,
+                model=settings.GROQ_MODEL,
+            )
         # ‫مرحله ۲: ساخت پرامپت بر اساس intent
         # ‫برای RAG — chunks پاس داده میشه
         # ‫برای غیر RAG — chunks خالیه (PromptBuilder نادیده میگیره)

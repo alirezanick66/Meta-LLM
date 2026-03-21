@@ -24,8 +24,7 @@ class IntentDetector:
         r"^\W*"
         r"(?:سلام|درود|خوبی|خوب هستی|حالت چطوره|چطوری|"
         r"ممنون|مرسی|متشکرم|خداحافظ|بای|موفق باشی|"
-        r"تشکر|عالی بود|دستت درد نکنه)"
-        r"\W*$",
+        r"تشکر|عالی بود|دستت درد نکنه)",
         re.IGNORECASE,
     )
 
@@ -37,11 +36,12 @@ class IntentDetector:
 
     سوال کاربر: "{query}"
 
-    آیا این سوال مستقیماً به حوزه تخصصی بالا مربوط است و نیاز به جستجو در اسناد دارد؟
+    یکی از این سه کلمه را بنویس:
+    - RAG: اگه سوال مستقیماً به حوزه تخصصی مربوط است
+    - CONVERSATIONAL: اگه سوال احوال‌پرسی، معرفی، یا سوال درباره دستیار است
+    - OUT_OF_SCOPE: اگه سوال به حوزه تخصصی مربوط نیست
 
-    فقط یکی از این دو کلمه را بنویس:
-    RAG
-    OUT_OF_SCOPE"""
+    فقط یک کلمه بنویس:"""
 
     def __init__( self ):
         self._groq_client: Optional[ Groq ] = None
@@ -97,7 +97,7 @@ class IntentDetector:
         ‫لایه ۱: بررسی احوال‌پرسی با regex
         Returns None اگه match نشد
         """
-        if self._CONVERSATIONAL_PATTERN.match( query ):
+        if self._CONVERSATIONAL_PATTERN.search( query ):
             return QueryIntent.CONVERSATIONAL
         return None
 
@@ -135,6 +135,8 @@ class IntentDetector:
         """
         cleaned = raw.strip().upper()
 
+        if "CONVERSATIONAL" in cleaned:
+            return QueryIntent.CONVERSATIONAL
         if "OUT_OF_SCOPE" in cleaned:
             return QueryIntent.OUT_OF_SCOPE
         if "RAG" in cleaned:
