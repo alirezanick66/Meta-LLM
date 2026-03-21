@@ -1,46 +1,32 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 
 /**
- * Hook برای انیمیشن تایپ کاراکتر به کاراکتر (نسخه اصلاح شده)
- * @param {string} text - متن کامل
- * @param {number} speed - سرعت تایپ (میلی‌ثانیه)
- * @param {boolean} enabled - فعال/غیرفعال بودن افکت
+ * Hook مدیریت وضعیت typing
+ * فقط یه delay کوتاه بعد از نمایش پیام — animation کامل به CSS سپرده شده
  */
 export const useTypingEffect = (text, speed = 20, enabled = true) => {
-	const [displayedText, setDisplayedText] = useState("")
 	const [isTyping, setIsTyping] = useState(false)
+	const timerRef = useRef(null)
 
 	useEffect(() => {
-		// اگه افکت غیرفعاله یا متن خالیه، کل متن رو نشون بده
 		if (!enabled || !text) {
-			setDisplayedText(text || "")
 			setIsTyping(false)
 			return
 		}
 
-		// ریست کردن
 		setIsTyping(true)
-		setDisplayedText("")
 
-		let index = 0
-		const timer = setInterval(() => {
-			// ✅ اول چک می‌کنیم که index از طول متن کمتر باشه
-			if (index < text.length) {
-				// ✅ کاراکتر فعلی رو اضافه می‌کنیم
-				setDisplayedText(text.substring(0, index + 1))
-				index++
-			} else {
-				// ✅ تایپ تموم شد
-				clearInterval(timer)
-				setIsTyping(false)
-			}
-		}, speed)
+		// ‫delay متناسب با طول متن — حداکثر 2 ثانیه
+		const delay = Math.min(text.length * 10, 2000)
+
+		timerRef.current = setTimeout(() => {
+			setIsTyping(false)
+		}, delay)
 
 		return () => {
-			clearInterval(timer)
-			setIsTyping(false)
+			if (timerRef.current) clearTimeout(timerRef.current)
 		}
-	}, [text, speed, enabled])
+	}, [text, enabled])
 
-	return { displayedText, isTyping }
+	return { displayedText: text, isTyping }
 }

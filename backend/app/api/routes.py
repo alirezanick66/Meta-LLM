@@ -11,7 +11,7 @@ from backend.app.core.config import settings
 from fastapi.concurrency import run_in_threadpool
 from backend.app.db.postgres import PostgresManager
 from backend.app.api.dependencies import ( get_embedding_service, get_hybrid_retriever, get_llm_orchestrator, get_qdrant_indexer,
-                                           get_qdrant_manager, get_bm25_indexer, get_tokenizer_service )
+                                           get_qdrant_manager, get_bm25_indexer, get_tokenizer_service, get_intent_detector )
 from backend.app.schemas.api_schemas import SystemStats, UsageInfo
 from backend.app.schemas.base_schemas import LLMProvider, QueryIntent
 from backend.app.schemas.chat_schemas import ChatMetadata, ChatRequest, ChatResponse, Source
@@ -66,7 +66,6 @@ async def chat(
         # ‫IntentDetector داخل orchestrator صدا زده میشه
         # ‫ولی برای تصمیم‌گیری routing در routes.py نیاز به intent داریم
         # ‫پس IntentDetector رو مستقیم صدا میزنیم
-        from backend.app.api.dependencies import get_intent_detector
         intent_detector = get_intent_detector()
         intent = await run_in_threadpool( intent_detector.detect, request.query )
 
@@ -113,7 +112,7 @@ async def chat(
         # ==================== مرحله 3: Retrieval (RRF) ====================
         log_message( LG.API, "🔍 مرحله 3: Retrieval...", LogLevel.DEBUG )
         chunks = await run_in_threadpool( retriever.retrieve, request.query )
-        chunks = chunks[ :settings.RERANKER_INPUT_SIZE ]
+        # chunks = chunks[ :settings.RERANKER_INPUT_SIZE ]
         if not chunks:
             log_message( LG.API, "⚠️ هیچ chunk ای پیدا نشد", LogLevel.WARNING )
             return ChatResponse( success=False,

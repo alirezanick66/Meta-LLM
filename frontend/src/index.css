@@ -36,25 +36,6 @@
 	}
 }
 
-@layer components {
-	/* Scrollbar styling برای تم روشن */
-	.scrollbar-thin::-webkit-scrollbar {
-		width: 6px;
-	}
-
-	.scrollbar-thin::-webkit-scrollbar-track {
-		@apply bg-gray-100;
-	}
-
-	.scrollbar-thin::-webkit-scrollbar-thumb {
-		@apply bg-gray-300 rounded-full;
-	}
-
-	.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-		@apply bg-gray-400;
-	}
-}
-
 @layer utilities {
 	/* Animation برای typing dots */
 	@keyframes typing {

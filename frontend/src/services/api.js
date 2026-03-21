@@ -102,26 +102,12 @@ export const sendMessage = async (query, temperature = 0.3, signal = null) => {
 }
 
 /**
- * دریافت آمار سیستم
- * @returns {Promise} - آمار سیستم
- */
-export const getStats = async () => {
-	try {
-		const response = await api.get("/stats")
-		return response.data
-	} catch (error) {
-		console.error("Error fetching stats:", error)
-		throw error
-	}
-}
-
-/**
  * بررسی وضعیت سلامت سرور
  * @returns {Promise} - وضعیت health
  */
 export const checkHealth = async () => {
 	try {
-		const response = await axios.get("/health")
+		const response = await api.get("/health")
 		return response.data
 	} catch (error) {
 		console.error("Health check failed:", error)

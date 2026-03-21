@@ -42,15 +42,16 @@ class Settings( BaseSettings ):
 
     # ==================== Embedding Models ====================
     EMBEDDING_MODEL: str = "Alibaba-NLP/gte-multilingual-base"
-    RERANKER_MODEL: str = "bge-reranker-base"
     EMBEDDING_DEVICE: Literal[ "cpu", "cuda" ] = "cpu"
     EMBEDDING_BATCH_SIZE: int = 32
     EMBEDDING_MODEL_TOKEN: str = ""
     EMBEDDING_MODEL_PATH: str = ""
-    RERANKER_MODEL_PATH: str = ""          # ‫مسیر local مدل reranker
-    RERANKER_SCORE_THRESHOLD: float = 0.3
     EMBEDDING_VECTOR_DIM: int = 768
     EMBEDDING_CPU_THREADS: int = 16          # ‫تعداد ترد های CPU برای پردازش embedding
+    #Reranker
+    RERANKER_MODEL: str = "bge-reranker-base"
+    RERANKER_MODEL_PATH: str = ""          # ‫مسیر local مدل reranker
+    RERANKER_SCORE_THRESHOLD: float = 0.2
 
     # ==================== Chunking ====================
     CHUNK_SIZE: int = 512
@@ -64,7 +65,7 @@ class Settings( BaseSettings ):
     RRF_TOP_K: int = 20          # ‫تعداد نتایج بعد از RRF قبل از reranker
     BM25_CACHE_DIR: str = "backend/data/storage/bm25_cache"
     # ==================== FastAPI ====================
-    API_HOST: str = "127.0.0.1"
+    API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     API_RELOAD: bool = False
 

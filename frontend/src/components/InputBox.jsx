@@ -20,8 +20,7 @@ const InputBox = ({ onSend, isLoading }) => {
 		}
 	}, [message])
 
-	const handleSubmit = (e) => {
-		e.preventDefault()
+	const handleSubmit = () => {
 		const trimmed = message.trim()
 		if (!trimmed || isLoading) return
 
@@ -35,7 +34,7 @@ const InputBox = ({ onSend, isLoading }) => {
 	const handleKeyDown = (e) => {
 		if (e.key === "Enter" && !e.shiftKey) {
 			e.preventDefault()
-			handleSubmit(e)
+			handleSubmit()
 		}
 	}
 
@@ -44,7 +43,7 @@ const InputBox = ({ onSend, isLoading }) => {
 
 	return (
 		<div className="bg-white px-4 py-4">
-			<form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+			<div className="max-w-3xl mx-auto">
 				<div
 					className={`
 						relative flex items-end gap-2 
@@ -55,7 +54,7 @@ const InputBox = ({ onSend, isLoading }) => {
 					{/* دکمه ارسال */}
 					<div className="pb-2 pl-2 pr-1">
 						<button
-							type="submit"
+							onClick={handleSubmit}
 							disabled={
 								!message.trim() || isLoading || isOverLimit
 							}
@@ -144,7 +143,7 @@ const InputBox = ({ onSend, isLoading }) => {
 						Shift + Enter برای خط جدید
 					</span>
 				</div>
-			</form>
+			</div>
 		</div>
 	)
 }

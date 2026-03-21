@@ -3,13 +3,13 @@ import MessageActions from "./MessageActions"
 import MarkdownRenderer from "./MarkdownRenderer"
 import { useTypingEffect } from "../hooks/useTypingEffect"
 import SourceCards from "./SourceCards"
+
 const Message = ({
 	message,
 	onRegenerate,
 	onEditSubmit,
 	isRegenerating = false,
 	enableTyping = false,
-	typingEffect = "slideIn",
 }) => {
 	const isUser = message.role === "user"
 	const [isEditing, setIsEditing] = useState(false)
@@ -22,10 +22,7 @@ const Message = ({
 		enableTyping && !isUser,
 	)
 
-	const content = useMemo(
-		() => (enableTyping && !isUser ? displayedText : message.content),
-		[enableTyping, isUser, displayedText, message.content],
-	)
+	const content = message.content
 
 	// 🎯 Handlers
 	const handleEditStart = useCallback(() => {
@@ -82,23 +79,15 @@ const Message = ({
 
 	// 🎯 Render content
 	const renderContent = useMemo(() => {
-		const markdown = (
-			<MarkdownRenderer
-				content={content}
-				isInline={enableTyping && !isUser}
-			/>
-		)
-
-		if (!enableTyping || isUser) return markdown
-
-		return typingEffect === "slideIn" ? (
+		if (!enableTyping || isUser) {
+			return <MarkdownRenderer content={content} />
+		}
+		return (
 			<span className="inline-block animate-slideInRight">
-				{markdown}
+				<MarkdownRenderer content={content} />
 			</span>
-		) : (
-			markdown
 		)
-	}, [content, enableTyping, isUser, typingEffect])
+	}, [content, enableTyping, isUser])
 
 	// 🎯 Edit mode
 	if (isEditing) {
@@ -150,11 +139,6 @@ const Message = ({
 				<div
 					className={`text-sm md:text-base leading-7 whitespace-pre-wrap break-words px-4 py-3 rounded-2xl w-fit max-w-[85%] ${isUser ? "bg-[#fff6d9] text-gray-900" : "text-gray-900"}`}>
 					{renderContent}
-					{isTyping && typingEffect === "default" && (
-						<span className="inline-block w-0.5 h-4 bg-gray-900 ml-1 animate-pulse">
-							▌
-						</span>
-					)}
 				</div>
 				{!isUser &&
 					message.sources?.length > 0 &&

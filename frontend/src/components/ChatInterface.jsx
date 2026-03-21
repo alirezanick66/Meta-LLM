@@ -4,12 +4,8 @@ import SkeletonMessage from "./SkeletonMessage"
 import ScrollToBottom from "./ScrollToBottom"
 import InputBox from "./InputBox"
 import { sendMessage } from "../services/api"
+import { getRandomQuestions } from "../constants/questions"
 
-/**
- * کامپوننت اصلی چت (نسخه اصلاح شده)
- *
- * اصلاحیه: جابجایی handleSend و handleEditSubmit برای رفع خطای ReferenceError
- */
 const ChatInterface = () => {
 	const [messages, setMessages] = useState([])
 	const [isLoading, setIsLoading] = useState(false)
@@ -20,6 +16,7 @@ const ChatInterface = () => {
 	const messagesContainerRef = useRef(null)
 	const isMountedRef = useRef(true)
 	const abortControllerRef = useRef(null)
+	const [randomQuestions] = useState(() => getRandomQuestions())
 
 	// Cleanup on unmount
 	useEffect(() => {
@@ -271,7 +268,7 @@ const ChatInterface = () => {
 							</h2>
 
 							<p className="text-gray-600 mb-8 text-lg">
-								از من درباره انقلاب اسلامی بپرسید
+								از من درباره حقوق کار و تأمین اجتماعی بپرسید
 							</p>
 
 							<div className="mt-8 flex flex-col gap-2 items-center">
@@ -279,20 +276,7 @@ const ChatInterface = () => {
 									مثال‌های سوال:
 								</p>
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-4xl mx-auto px-4">
-									{[
-										{
-											emoji: "💡",
-											text: "انقلاب اسلامی چه تأثیری داشت؟",
-										},
-										{
-											emoji: "📚",
-											text: "ویژگی‌های انقلاب اسلامی چیست؟",
-										},
-										{
-											emoji: "🏛️",
-											text: "نقش امام خمینی در انقلاب",
-										},
-									].map((example, idx) => (
+									{randomQuestions.map((example, idx) => (
 										<button
 											key={idx}
 											onClick={() =>
