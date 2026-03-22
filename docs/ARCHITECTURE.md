@@ -108,7 +108,7 @@ Merged Top-20 Results
     ↓
 Content Fetch from PostgreSQL (Bulk Query)
     ↓
-bge-reranker-base (Top-8 input → Top-5 output)
+gte-multilingual-reranker-base (Top-8 input → Top-5 output)
     ↓
 Final Top-5 Documents
     ↓

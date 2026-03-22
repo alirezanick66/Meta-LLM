@@ -51,13 +51,13 @@ MetaLLM یک سیستم پرسش و پاسخ هوشمند مبتنی بر RAG ا
 
 ## 🔧 تکنولوژی‌ها
 
-|لایه|تکنولوژی|
-|:-:|:-:|
-|**Backend**|FastAPI, Pydantic, SQLAlchemy, Alembic|
-|**Database**|PostgreSQL, Qdrant, Redis|
-|**AI/ML**|gte-multilingual-base, BGE-Reranker, Groq, Gemini|
-|**Frontend**|React 18, Vite, Tailwind CSS, React Router|
-|**DevOps**|Docker, Docker Compose, Loguru|
+|     لایه     |                     تکنولوژی                      |
+| :----------: | :-----------------------------------------------: |
+| **Backend**  |      FastAPI, Pydantic, SQLAlchemy, Alembic       |
+| **Database** |             PostgreSQL, Qdrant, Redis             |
+|  **AI/ML**   | gte-multilingual-base, GTE-Reranker, Groq, Gemini |
+| **Frontend** |    React 18, Vite, Tailwind CSS, React Router     |
+|  **DevOps**  |          Docker, Docker Compose, Loguru           |
 
 ---
 

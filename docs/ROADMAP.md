@@ -47,10 +47,9 @@
 - Hybrid Retriever با Reciprocal Rank Fusion (RRF)
 - Parallel execution (ThreadPoolExecutor) — حذف sequential fallback
 - Score thresholds و filtering
-- gte-multilingual-reranker-base
+- gte-multilingual-base
 - - Content fetch از PostgreSQL بین RRF و Reranker (حل باگ reranker score=0.0001)
 - تقسیم `retrieve` به دو متد `retrieve` و `rerank`
-- `bge-reranker-base` به جای `v2-m3` (بهینه‌سازی CPU)
 
 #### ✅ فاز 6: LLM Integration
 
@@ -128,7 +127,7 @@
 - ⬜ Voice input
 - ⬜ PDF support (text-based)
 - ⬜ Streaming responses
-- ⬜اضافه کردن Query Expansion به لیست
+- ⬜Query Expansion
 #### 🟢 فاز 12: Deployment
 
 - ⬜ Production config
@@ -138,4 +137,4 @@
 
 ---
 
-**نسخه:** 1.5.0 | **آخرین بروزرسانی:** 2026/03/22
+**نسخه:** 1.6.0 | **آخرین بروزرسانی:** 2026/03/22
