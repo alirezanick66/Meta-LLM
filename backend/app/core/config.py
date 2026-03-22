@@ -48,11 +48,6 @@ class Settings( BaseSettings ):
     EMBEDDING_MODEL_PATH: str = ""
     EMBEDDING_VECTOR_DIM: int = 768
     EMBEDDING_CPU_THREADS: int = 16          # ‫تعداد ترد های CPU برای پردازش embedding
-    #Reranker
-    RERANKER_MODEL: str = "bge-reranker-base"
-    RERANKER_MODEL_PATH: str = ""          # ‫مسیر local مدل reranker
-    RERANKER_SCORE_THRESHOLD: float = 0.2
-
     # ==================== Chunking ====================
     CHUNK_SIZE: int = 512
     CHUNK_OVERLAP: int = 128
@@ -60,10 +55,16 @@ class Settings( BaseSettings ):
     # ==================== Retrieval ====================
     BM25_TOP_K: int = 20
     VECTOR_TOP_K: int = 20
-    RERANKER_TOP_K: int = 5          # ‫تعداد نتایج نهایی بعد از reranker
-    RERANKER_INPUT_SIZE: int = 8
     RRF_TOP_K: int = 20          # ‫تعداد نتایج بعد از RRF قبل از reranker
     BM25_CACHE_DIR: str = "backend/data/storage/bm25_cache"
+
+    #Reranker
+    RERANKER_MODEL: str = "gte-multilingual-reranker-base"
+    RERANKER_MODEL_PATH: str = ""          # ‫مسیر local مدل reranker
+    RERANKER_SCORE_THRESHOLD: float = 0.1
+    RERANKER_TOP_K: int = 5          # ‫تعداد نتایج نهایی بعد از reranker
+    RERANKER_INPUT_SIZE: int = 8
+
     # ==================== FastAPI ====================
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000

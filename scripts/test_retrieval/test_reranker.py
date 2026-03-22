@@ -1,23 +1,22 @@
-# scripts/test_reranker_direct.py
-import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+import sys
+from pathlib import Path
 
-MODEL_PATH = r"E:\A-Golchin program\Ai\Models\bge-reranker-v2-m3"
+# اضافه کردن مسیر پروژه
+sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent.parent ) )
+from backend.app.api.dependencies import get_reranker_service
+from backend.app.utils.logging_config import log_message, LG, LogLevel
 
-tokenizer = AutoTokenizer.from_pretrained( MODEL_PATH, trust_remote_code=True )
-model = AutoModelForSequenceClassification.from_pretrained( MODEL_PATH, trust_remote_code=True )
-model.eval()
+reranker = get_reranker_service()
+query = "یه کارمند یا کارگر چند درصد از بیمه رو باید پرداخت کنه؟"
 
-pairs = [
-    [ "حداقل مزد کارگر در سال 1404 چقدر است؟", "حداقل مزد روزانه: 3,463,656 ریال - حداقل مزد ماهانه: 103,909,680 ریال" ],
-    [ "حداقل مزد کارگر در سال 1404 چقدر است؟", "ماده 79: به کار گماردن افراد کمتر از 15 سال کامل ممنوع است." ],
+chunks = [
+    {
+        "chunk_id":
+        "doc_5_chunk_009",
+        "content":
+        "ماده 28: منابع درآمد سازمان به شرح زیر میباشد: 1- حق بیمه از اول مهر ماه تا پایان سال 1354 به میزان بیست و هشت درصد مزد یا حقوق است که هفت درصد آن به عهده بیمه شده و هجده درصد به عهده کارفرما و سه درصد به وسیله دولت تأمین خواهد شد."
+    },
 ]
 
-inputs = tokenizer( pairs, padding=True, truncation=True, max_length=512, return_tensors="pt" )
-
-with torch.no_grad():
-    logits = model( **inputs ).logits.squeeze( -1 )
-    scores = torch.sigmoid( logits )
-
-print( f"Raw logits: {logits.tolist()}" )
-print( f"Sigmoid scores: {scores.tolist()}" )
+results = reranker.rerank( query, chunks, top_k=1 )
+log_message( LG.Retrieval, f"score: {results[0]['reranker_score'] if results else 'فیلتر شد!'}'", LogLevel.INFO )

@@ -30,7 +30,7 @@ MetaLLM یک سیستم پرسش و پاسخ هوشمند مبتنی بر RAG ا
 
 - ✅ جستجوی Hybrid (BM25 + Vector Semantic)
 - ✅ Reciprocal Rank Fusion (RRF) برای ادغام نتایج
-- ✅ BGE Reranker برای رتبه‌بندی نهایی
+- ✅ GTE Multilingual Reranker برای رتبه‌بندی نهایی
 - ✅ Parallel Retrieval (~220ms، 45% سریع‌تر از Sequential)
 
 **هوش مصنوعی:**
@@ -105,4 +105,4 @@ cd frontend && npm install && npm run dev
 
 ---
 
-> **نسخه:** 1.5.0 | **آخرین بروزرسانی:**  2026/03/21
+> **نسخه:** 1.6.0 | **آخرین بروزرسانی:**  2026/03/22

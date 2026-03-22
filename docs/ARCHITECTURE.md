@@ -19,7 +19,7 @@
 - **Device:** CPU با batch processing (batch_size: 32)
 - **CPU Threads:** 4 (قابل تنظیم)
 - **Tokenizer:** gte-multilingual-base (یکپارچه برای chunking و token counting)
-- **Reranker:** bge-reranker-base
+- **Reranker:** gte-multilingual-reranker-base
 - **LLM Primary:** Groq API — llama-3.3-70b-versatile
 - **LLM Fallback:** Gemini API — gemini-2.5-flash
 - **Persian Processing:** Custom Normalizer (بدون Hazm، با str.translate برای سرعت)
@@ -138,7 +138,7 @@ Final Answer + Sources
 |  Documents sent to LLM   | Top-5         |
 |    Max context tokens    | 3000          |
 |   RERANKER_INPUT_SIZE    | 8             |
-| RERANKER_SCORE_THRESHOLD | 0.3           |
+| RERANKER_SCORE_THRESHOLD | 0.1           |
 
 ### **چرا Hybrid؟**
 
@@ -265,4 +265,4 @@ MetaLLM/
 └── docker-compose.yml
 ```
 
-**نسخه:** 1.4.0 | **آخرین بروزرسانی:** 2026/03/21
+**نسخه:** 1.5.0 | **آخرین بروزرسانی:** 2026/03/22

@@ -5,11 +5,16 @@ from pathlib import Path
 sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent.parent ) )
 
 from backend.app.services.document.markdown_extractor import MarkdownExtractor
+import sys
+from pathlib import Path
 
-file_path: str = "backend/data/documents/enghelab.md"
+sys.path.insert( 0, str( Path( __file__ ).resolve().parent.parent.parent ) )
 
-extracted_text, metadata = MarkdownExtractor().extract_from_markdown( file_path )
+from backend.app.utils.custom_normalizer import persian_normalizer
 
-# نوشتن متن استخراج شده در فایل
-with open( "extracted_text.txt", "w", encoding="utf-8" ) as f:
-    f.write( extracted_text )
+# ‫تست normalize روی یه header نمونه
+test = "### فصل اول: اصول و تعاریف کلی"
+result = persian_normalizer.normalize( test )
+print( f"قبل: {test}" )
+print( f"بعد: {result}" )
+print( f"آیا # حفظ شد: {'#' in result}" )

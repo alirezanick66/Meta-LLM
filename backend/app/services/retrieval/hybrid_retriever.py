@@ -116,19 +116,11 @@ class HybridRetriever:
     def _apply_rrf( self, bm25_results: List[ Dict[ str, Any ] ], vector_results: List[ Dict[ str,
                                                                                               Any ] ] ) -> List[ Dict[ str, Any ] ]:
         """
-       ‫ اعمال Reciprocal Rank Fusion استاندارد (بدون وزن‌دهی)
-        
+        ‫ اعمال Reciprocal Rank Fusion استاندارد (بدون وزن‌دهی)
+
         فرمول RRF:
         score(doc) = Σ (1 / (k + rank_i))
-        
-        Args:
-            bm25_results: نتایج BM25
-            vector_results: نتایج Vector
-            
-        Returns:
-           ‫ لیست merged و sorted بر اساس RRF score
         """
-        #‫ ذخیره اطلاعات هر chunk
         chunk_data: Dict[ str, Dict[ str, Any ] ] = defaultdict(
             lambda: {
                 ResultKeys.CHUNK_ID: None,
@@ -144,7 +136,7 @@ class HybridRetriever:
         # ‫پردازش نتایج BM25
         for rank, result in enumerate( bm25_results, start=1 ):
             chunk_id = result[ ResultKeys.CHUNK_ID ]
-            chunk = chunk_data[ chunk_id ]          # ‫یه بار reference میگیریم
+            chunk = chunk_data[ chunk_id ]
             chunk[ ResultKeys.CHUNK_ID ] = chunk_id
             chunk[ RRFKeys.BM25_SCORE ] = result[ ResultKeys.SCORE ]
             chunk[ RRFKeys.BM25_RANK ] = rank
@@ -155,7 +147,7 @@ class HybridRetriever:
         # ‫پردازش نتایج Vector
         for rank, result in enumerate( vector_results, start=1 ):
             chunk_id = result[ ResultKeys.CHUNK_ID ]
-            chunk = chunk_data[ chunk_id ]          # ‫یه بار reference میگیریم
+            chunk = chunk_data[ chunk_id ]
             chunk[ ResultKeys.CHUNK_ID ] = chunk_id
             chunk[ RRFKeys.VECTOR_SCORE ] = result[ ResultKeys.SCORE ]
             chunk[ RRFKeys.VECTOR_RANK ] = rank
@@ -168,7 +160,7 @@ class HybridRetriever:
 
             chunk[ RRFKeys.RRF_SCORE ] += 1.0 / ( self.rrf_k + rank )
 
-        # تبدیل به لیست و مرتب‌سازی
+        # ‫تبدیل به لیست و مرتب‌سازی
         merged_results = sorted( chunk_data.values(), key=lambda x: x[ RRFKeys.RRF_SCORE ], reverse=True )
 
         stats = { RRFStats.BOTH: 0, RRFStats.ONLY_BM25: 0, RRFStats.ONLY_VECTOR: 0 }
