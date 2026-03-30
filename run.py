@@ -2,7 +2,7 @@ import uvicorn
 from backend.app.core.config import settings
 
 if __name__ == "__main__":
-    print("🚀 Starting uvicorn server...")
+    print("\n🚀 Starting uvicorn server...")
     
     uvicorn.run(
         "backend.app.main:app",
