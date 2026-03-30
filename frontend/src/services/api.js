@@ -66,7 +66,7 @@ export const sendMessage = async (query, temperature = 0.3, signal = null) => {
 				query,
 				temperature,
 			},
-			signal ? config : {}, // ✅ فقط اگه signal داریم config رو pass کن
+			signal ? config : {}, // ✅ ‫فقط اگه signal داریم config رو pass کن
 		)
 		return response.data
 	} catch (error) {

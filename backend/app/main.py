@@ -65,7 +65,7 @@ async def lifespan( app: FastAPI ):
     log_message( LG.API, f"🌡️ Temperature: {settings.TEMPERATURE}", LogLevel.INFO )
     log_message( LG.API, "=" * 70, LogLevel.INFO )
     log_message( LG.API, "✅ Meta API آماده است!", LogLevel.INFO )
-    log_message( LG.API, "📚 Docs: http://localhost:8000/docs", LogLevel.INFO )
+    log_message( LG.API, f"📚 Docs: http://localhost:{settings.API_PORT}/docs", LogLevel.INFO )
     log_message( LG.API, "=" * 70, LogLevel.INFO )
 
     yield
@@ -173,16 +173,3 @@ async def health_check():
             "qdrant_vectors": vectors_count
         }
     }
-
-
-# ==================== Main Entry Point ====================
-if __name__ == "__main__":
-    import uvicorn
-
-    log_message( LG.API, "🚀 Starting uvicorn server...", LogLevel.INFO )
-
-    uvicorn.run( "backend.app.main:app",
-                 host=settings.API_HOST,
-                 port=settings.API_PORT,
-                 reload=settings.API_RELOAD,
-                 log_level="info" )
