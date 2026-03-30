@@ -2,7 +2,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List
-
+import json
+from fastapi.responses import StreamingResponse
 from fastapi import APIRouter, HTTPException, status, Depends, BackgroundTasks, UploadFile, File
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -201,6 +202,149 @@ async def chat(
             error_msg = "زمان پردازش بیش از حد طولانی شد. لطفاً دوباره تلاش کنید."
 
         raise HTTPException( status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg )
+
+
+# ==================== Chat Stream Endpoint ====================
+@router.post(
+    "/chat/stream",
+    status_code=status.HTTP_200_OK,
+    summary="ارسال سوال و دریافت وضعیت پردازش به صورت SSE",
+)
+async def chat_stream( request: ChatRequest,
+                       db: Session = Depends( get_db ),
+                       retriever: HybridRetriever = Depends( get_hybrid_retriever ),
+                       orchestrator: LLMOrchestrator = Depends( get_llm_orchestrator ) ):
+    """‫ارسال وضعیت pipeline به صورت SSE و پاسخ نهایی"""
+
+    async def event_generator():
+        start_time = time.time()
+
+        def send_event( event: str, data: dict ) -> str:
+            """‫ساخت فرمت SSE استاندارد"""
+            return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+        try:
+            # ==================== مرحله ۱: Intent Detection ====================
+            yield send_event( "status", { "message": "🔍 در حال جستجو در اسناد..." } )
+
+            intent_detector = get_intent_detector()
+            intent = await run_in_threadpool( intent_detector.detect, request.query )
+
+            # ==================== مرحله ۲: Routing ====================
+            if intent in ( QueryIntent.OUT_OF_SCOPE, QueryIntent.CONVERSATIONAL ):
+                message = settings.OUT_OF_SCOPE_MESSAGE if intent == QueryIntent.OUT_OF_SCOPE else settings.CONVERSATIONAL_MESSAGE
+                yield send_event(
+                    "done", {
+                        "success": True,
+                        "answer": message,
+                        "sources": [],
+                        "metadata": {
+                            "provider": "groq",
+                            "model": settings.GROQ_MODEL,
+                            "usage": {
+                                "prompt_tokens": 0,
+                                "completion_tokens": 0
+                            },
+                            "intent": intent,
+                            "retrieval_count": 0,
+                            "response_time": round( time.time() - start_time, 2 ),
+                        },
+                        "error": None,
+                    } )
+                return
+
+            # ==================== مرحله ۳: Retrieval ====================
+            chunks = await run_in_threadpool( retriever.retrieve, request.query )
+
+            if not chunks:
+                yield send_event(
+                    "done", {
+                        "success": False,
+                        "answer": None,
+                        "sources": [],
+                        "metadata": None,
+                        "error": "متأسفانه در اسناد موجود، اطلاعاتی مرتبط با سوال شما پیدا نشد.",
+                    } )
+                return
+
+            # ==================== مرحله ۴: Content Fetch ====================
+            pg_manager = PostgresManager( db )
+            chunk_ids = [ chunk[ 'chunk_id' ] for chunk in chunks ]
+            contents_map = await run_in_threadpool( pg_manager.get_chunks_content_bulk, chunk_ids )
+            for chunk in chunks:
+                chunk[ 'content' ] = contents_map.get( chunk[ 'chunk_id' ], "" )
+
+            # ==================== مرحله ۵: Reranking ====================
+            yield send_event( "status", { "message": "⚖️ در حال رتبه‌بندی نتایج..." } )
+
+            chunks = chunks[ :settings.RERANKER_INPUT_SIZE ]
+            chunks = await run_in_threadpool( retriever.rerank, request.query, chunks, settings.RERANKER_TOP_K )
+
+            # ==================== مرحله ۶: LLM Generation ====================
+            yield send_event( "status", { "message": "✍️ در حال تولید پاسخ..." } )
+
+            llm_response = await run_in_threadpool(
+                orchestrator.generate_answer,
+                query=request.query,
+                chunks=chunks,
+                intent=intent,
+                temperature=request.temperature,
+                include_metadata=True,
+            )
+
+            # ==================== مرحله ۷: ارسال نتیجه نهایی ====================
+            response_time = time.time() - start_time
+
+            if not llm_response.success:
+                yield send_event(
+                    "done", {
+                        "success": False,
+                        "answer": None,
+                        "sources": [],
+                        "metadata": None,
+                        "error": llm_response.error or "خطای نامشخص در تولید پاسخ",
+                    } )
+                return
+
+            sources = [ {
+                "index": src.index,
+                "chunk_id": src.chunk_id or "",
+                "source": src.source,
+                "hierarchy": src.hierarchy,
+                "content": src.content,
+            } for src in llm_response.sources ]
+
+            yield send_event(
+                "done", {
+                    "success": True,
+                    "answer": llm_response.answer,
+                    "sources": sources,
+                    "metadata": {
+                        "provider": llm_response.provider,
+                        "model": llm_response.model or "unknown",
+                        "usage": {
+                            "prompt_tokens": llm_response.usage.prompt_tokens,
+                            "completion_tokens": llm_response.usage.completion_tokens,
+                        },
+                        "intent": llm_response.intent,
+                        "retrieval_count": len( chunks ),
+                        "response_time": round( response_time, 2 ),
+                    },
+                    "error": None,
+                } )
+
+        except Exception as e:
+            log_message( LG.API, f"❌ خطا در chat stream: {str(e)}", LogLevel.ERROR )
+            yield send_event( "error", { "message": "خطای داخلی سرور رخ داده است" } )
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ==================== Stats Endpoint ====================

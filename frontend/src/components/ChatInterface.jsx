@@ -3,7 +3,7 @@ import Message from "./Message"
 import SkeletonMessage from "./SkeletonMessage"
 import ScrollToBottom from "./ScrollToBottom"
 import InputBox from "./InputBox"
-import { sendMessage } from "../services/api"
+import { sendMessage, sendMessageStream } from "../services/api"
 import { getRandomQuestions } from "../constants/questions"
 
 const ChatInterface = () => {
@@ -11,6 +11,7 @@ const ChatInterface = () => {
 	const [isLoading, setIsLoading] = useState(false)
 	const [error, setError] = useState(null)
 	const [showScrollButton, setShowScrollButton] = useState(false)
+	const [streamStatus, setStreamStatus] = useState(null)
 
 	const messagesEndRef = useRef(null)
 	const messagesContainerRef = useRef(null)
@@ -65,8 +66,6 @@ const ChatInterface = () => {
 	// ارسال پیام (با useCallback)
 	const handleSend = useCallback(
 		async (content) => {
-			console.log("🚀 handleSend called with:", content)
-
 			const userMessage = {
 				id: generateMessageId(),
 				role: "user",
@@ -74,68 +73,104 @@ const ChatInterface = () => {
 				timestamp: new Date(),
 			}
 
-			console.log("📝 Setting user message:", userMessage)
 			setMessages((prev) => [...prev, userMessage])
 			setIsLoading(true)
+			setStreamStatus(null)
 			setError(null)
 
 			abortControllerRef.current = new AbortController()
 
 			try {
-				console.log("📡 Calling sendMessage API...")
-				const response = await sendMessage(
+				// ‫تلاش اول با SSE
+				let sseSuccess = false
+
+				await sendMessageStream(
 					content,
 					0.3,
+					// onStatus
+					(statusMsg) => {
+						if (isMountedRef.current) {
+							setStreamStatus(statusMsg)
+						}
+					},
+					// onDone
+					(data) => {
+						sseSuccess = true
+						if (!isMountedRef.current) return
+
+						if (data.success) {
+							const botMessage = {
+								id: generateMessageId(),
+								role: "assistant",
+								content: data.answer,
+								timestamp: new Date(),
+								sources: data.sources,
+								metadata: data.metadata,
+							}
+							setMessages((prev) => [...prev, botMessage])
+						} else {
+							const errorMessage = {
+								id: generateMessageId(),
+								role: "assistant",
+								content: `❌ ${data.error || "خطای نامشخص"}`,
+								timestamp: new Date(),
+							}
+							setMessages((prev) => [...prev, errorMessage])
+						}
+					},
+					// onError
+					(err) => {
+						if (!isMountedRef.current) return
+						console.warn(
+							"⚠️ SSE failed, falling back to REST:",
+							err,
+						)
+					},
 					abortControllerRef.current.signal,
 				)
 
-				console.log("✅ API Response received:", response)
-
-				if (!isMountedRef.current) {
-					console.warn(
-						"⚠️ Component unmounted, skipping state update",
+				// ‫fallback به REST اگه SSE کار نکرد
+				if (!sseSuccess && isMountedRef.current) {
+					console.log("🔄 Fallback to REST API...")
+					const response = await sendMessage(
+						content,
+						0.3,
+						abortControllerRef.current.signal,
 					)
-					return
-				}
 
-				if (response.success) {
-					const botMessage = {
-						id: generateMessageId(),
-						role: "assistant",
-						content: response.answer,
-						timestamp: new Date(response.timestamp),
-						sources: response.sources,
-						metadata: response.metadata,
+					if (!isMountedRef.current) return
+
+					if (response.success) {
+						const botMessage = {
+							id: generateMessageId(),
+							role: "assistant",
+							content: response.answer,
+							timestamp: new Date(),
+							sources: response.sources,
+							metadata: response.metadata,
+						}
+						setMessages((prev) => [...prev, botMessage])
+					} else {
+						throw new Error(response.error || "خطای نامشخص")
 					}
-
-					console.log("🤖 Setting bot message:", botMessage)
-					setMessages((prev) => [...prev, botMessage])
-				} else {
-					throw new Error(response.error || "خطای نامشخص")
 				}
 			} catch (err) {
-				console.error("❌ Error in handleSend:", err)
-
-				if (err.name === "AbortError" || err.name === "CanceledError") {
-					console.log("🚫 Request was canceled")
+				if (err.name === "AbortError" || err.name === "CanceledError")
 					return
-				}
-
 				if (!isMountedRef.current) return
 
 				setError(err.message || "خطا در ارسال پیام")
-
 				const errorMessage = {
 					id: generateMessageId(),
 					role: "assistant",
 					content: `❌ ${err.message || "متأسفانه مشکلی پیش آمده. لطفاً دوباره تلاش کنید."}`,
 					timestamp: new Date(),
 				}
-
 				setMessages((prev) => [...prev, errorMessage])
 			} finally {
 				if (isMountedRef.current) {
 					setIsLoading(false)
+					setStreamStatus(null)
 				}
 			}
 		},
@@ -334,7 +369,9 @@ const ChatInterface = () => {
 								/>
 							))}
 
-							{isLoading && <SkeletonMessage />}
+							{isLoading && (
+								<SkeletonMessage status={streamStatus} />
+							)}
 						</>
 					)}
 

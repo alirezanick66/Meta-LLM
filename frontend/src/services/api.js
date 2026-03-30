@@ -114,5 +114,78 @@ export const checkHealth = async () => {
 		throw error
 	}
 }
+/**
+ * ‫ارسال سوال با SSE — دریافت وضعیت pipeline در real-time
+ *
+ * @param {string} query - سوال کاربر
+ * @param {number} temperature - میزان خلاقیت
+ * @param {function} onStatus - callback برای وضعیت pipeline
+ * @param {function} onDone - callback برای پاسخ نهایی
+ * @param {function} onError - callback برای خطا
+ * @param {AbortSignal} signal - برای cancel کردن
+ */
+export const sendMessageStream = async (
+	query,
+	temperature = 0.3,
+	onStatus,
+	onDone,
+	onError,
+	signal = null,
+) => {
+	try {
+		const response = await fetch("/api/chat/stream", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ query, temperature }),
+			signal,
+		})
 
+		if (!response.ok) {
+			throw new Error(`HTTP error: ${response.status}`)
+		}
+
+		const reader = response.body.getReader()
+		const decoder = new TextDecoder()
+		let buffer = ""
+
+		while (true) {
+			const { done, value } = await reader.read()
+			if (done) break
+
+			buffer += decoder.decode(value, { stream: true })
+
+			// ‫پردازش خط به خط
+			const lines = buffer.split("\n")
+			buffer = lines.pop() || ""
+
+			let currentEvent = null
+
+			for (const line of lines) {
+				if (line.startsWith("event: ")) {
+					currentEvent = line.slice(7).trim()
+				} else if (line.startsWith("data: ")) {
+					try {
+						const data = JSON.parse(line.slice(6))
+
+						if (currentEvent === "status") {
+							onStatus?.(data.message)
+						} else if (currentEvent === "done") {
+							onDone?.(data)
+						} else if (currentEvent === "error") {
+							onError?.(new Error(data.message))
+						}
+					} catch (e) {
+						console.error("❌ SSE parse error:", e)
+					}
+					currentEvent = null
+				}
+			}
+		}
+	} catch (err) {
+		if (err.name === "AbortError") {
+			throw { message: "Request canceled", name: "CanceledError" }
+		}
+		onError?.(err)
+	}
+}
 export default api

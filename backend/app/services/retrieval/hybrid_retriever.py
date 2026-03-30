@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional,Callable, Optional
 from collections import defaultdict
 from backend.app.schemas.retrieval_schemas import ResultKeys, RetrievalMethod, RRFKeys, RRFStats
 from backend.app.services.retrieval.bm25_indexer import BM25Indexer
@@ -7,7 +7,6 @@ from backend.app.services.retrieval.reranker_service import RerankerService
 from backend.app.utils.logging_config import log_message, LG, LogLevel
 import time
 from concurrent.futures import ThreadPoolExecutor
-
 
 class HybridRetriever:
     """
@@ -49,7 +48,7 @@ class HybridRetriever:
         log_message( LG.Retrieval, "HybridRetriever آماده شد", LogLevel.INFO )
         log_message( LG.Retrieval, f"  - BM25 Top-K: {bm25_top_k}, Vector Top-K: {vector_top_k}, - RRF k={rrf_k}", LogLevel.DEBUG )
 
-    def retrieve( self, query: str, final_top_k: int | None = None ) -> List[ Dict[ str, Any ] ]:
+    def retrieve( self, query: str, final_top_k: int | None = None, on_status: Callable | None = None ) -> List[ Dict[ str, Any ] ]:
         """‫جستجوی Hybrid: BM25 + Vector → RRF (بدون Rerank)"""
         try:
             if not query or not query.strip():
