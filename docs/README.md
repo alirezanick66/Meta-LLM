@@ -4,7 +4,12 @@
 
 ## 📌 درباره پروژه
 
-MetaLLM یک سیستم پرسش و پاسخ هوشمند مبتنی بر RAG است که برای پاسخگویی به سوالات تخصصی در حوزه **حقوق کار، تأمین اجتماعی و قوانین مرتبط** طراحی شده است.
+متا  یک سیستم پرسش و پاسخ هوشمند مبتنی بر RAG است که برای پاسخگویی به سوالات تخصصی در حوزه **حقوق کار، تأمین اجتماعی و قوانین مرتبط** طراحی شده است
+
+## 🎥 دمو ویدیویی
+
+[🔗 مشاهده ویدیوی دمو](https://drive.google.com/file/d/1FcF3wSdqWhZ64Dr_o9iTt3lGOqJNlQrz/view?usp=sharing)
+
 
 |        مشخصات        |                        جزئیات                         |
 | :------------------: | :---------------------------------------------------: |
@@ -23,15 +28,15 @@ MetaLLM یک سیستم پرسش و پاسخ هوشمند مبتنی بر RAG ا
 
 - ✅ استخراج خودکار از Markdown و Word (.docx)
 - ✅ نرمال‌سازی پیشرفته فارسی (بدون وابستگی به Hazm)
-- ✅ Chunking هوشمند با Header Awareness
+- ✅ قابلیت Chunking هوشمند با Header Awareness
 - ✅ تشخیص Duplicate با SHA-256 Hash
 
 **جستجو و بازیابی:**
 
 - ✅ جستجوی Hybrid (BM25 + Vector Semantic)
-- ✅ Reciprocal Rank Fusion (RRF) برای ادغام نتایج
-- ✅ GTE Multilingual Reranker برای رتبه‌بندی نهایی
-- ✅ Parallel Retrieval (~220ms، 45% سریع‌تر از Sequential)
+- ✅استفاده Reciprocal Rank Fusion (RRF) برای ادغام نتایج
+- ✅ استفاده از GTE Multilingual Reranker برای رتبه‌بندی نهایی
+- ✅ استفاده از Parallel Retrieval (~220ms، 45% سریع‌تر از Sequential)
 
 **هوش مصنوعی:**
 
@@ -99,7 +104,6 @@ cd frontend && npm install && npm run dev
 |   فاز 7   |      Caching & Optimization       |      ⬜ بعدی       |
 |   فاز 8   |       Logging & Monitoring        | ⬜ برنامه‌ریزی شده |
 | فاز 11-12 |  Advanced Features و Deployment   | ⬜ برنامه‌ریزی شده |
-|           |                                   |                   |
 
 📖 جزئیات کامل: [`ROADMAP.md`](ROADMAP.md)
 
