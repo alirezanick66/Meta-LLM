@@ -108,5 +108,21 @@ cd frontend && npm install && npm run dev
 📖 جزئیات کامل: [`ROADMAP.md`](ROADMAP.md)
 
 ---
+## 📄 License
 
-> **نسخه:** 1.6.0 | **آخرین بروزرسانی:**  2026/03/22
+This project is licensed under the MIT License.
+
+⚠️ Attribution is required. Any usage must credit the original author and link to this repository.
+
+---
+## ⚠️ Disclaimer
+
+This project is for educational and informational purposes only.
+
+It does NOT provide legal advice and should not be used as a substitute for professional legal consultation.
+
+The author assumes no responsibility for any decisions made based on the system’s outputs.
+
+---
+
+> **نسخه:** 1.6.0 | **آخرین بروزرسانی:** 2026/06/24
